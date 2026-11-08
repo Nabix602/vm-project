@@ -31,9 +31,16 @@ copy_required() {
   cp "$src" "$dst"
 }
 
-copy_required "$PKG/build/v86.wasm"   "$DIST/build/v86.wasm"
-copy_required "$PKG/bios/seabios.bin" "$DIST/bios/seabios.bin"
-copy_required "$PKG/bios/vgabios.bin" "$DIST/bios/vgabios.bin"
+copy_required "$PKG/build/v86.wasm" "$DIST/build/v86.wasm"
+# Version de secours pour les navigateurs sans toutes les options WebAssembly récentes
+[ -f "$PKG/build/v86-fallback.wasm" ] && cp "$PKG/build/v86-fallback.wasm" "$DIST/build/v86-fallback.wasm"
+
+# Les BIOS ne sont pas dans le paquet npm : on les prend dans le dépôt de v86
+echo "==> Téléchargement des BIOS"
+for f in seabios.bin vgabios.bin; do
+  curl -fsSL -o "$DIST/bios/$f" "https://raw.githubusercontent.com/copy/v86/master/bios/$f" \
+    || curl -fsSL -o "$DIST/bios/$f" "https://copy.sh/v86/bios/$f"
+done
 
 # libv86.js : dans le paquet si présent, sinon depuis la dernière release GitHub
 if [ -f "$PKG/build/libv86.js" ]; then
