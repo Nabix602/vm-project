@@ -159,6 +159,7 @@
         emulator.run();
       }
       show("machine");
+      window.FrenchKeyboard.attach(emulator);
       setLabel(restore ? "Session reprise." : "Machine démarrée.");
       $("btn-resume").disabled = false;
       $("btn-fresh").disabled = false;
@@ -200,6 +201,7 @@
   async function onStop() {
     if (!emulator) return;
     if (!confirm("Éteindre la machine ? Ce qui n'est pas sauvegardé sera perdu.")) return;
+    window.FrenchKeyboard.detach();
     try { await emulator.destroy(); } catch {}
     emulator = null;
     $("screen_container").querySelector("div").textContent = "";
