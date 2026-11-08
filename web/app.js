@@ -161,9 +161,12 @@
       filesystem: { baseurl: cfg.fsBase, basefs: cfg.fsJson },
       autostart: !restore
     };
-    if (cfg.networkRelay) {
+    // Options de mise au point : ?net=0 coupe le réseau, ?mac=1 garde la même adresse MAC à la reprise
+    const q = new URLSearchParams(location.search);
+    if (cfg.networkRelay && q.get("net") !== "0") {
       options.net_device = { type: "virtio", relay_url: cfg.networkRelay };
     }
+    if (q.get("mac") === "1") options.preserve_mac_from_state_image = true;
 
     try {
       emulator = new Ctor(options);

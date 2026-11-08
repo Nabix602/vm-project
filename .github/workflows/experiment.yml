@@ -1,0 +1,29 @@
+name: Expérience reprise de session (temporaire)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  experiment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Récupérer l'image Linux en cache
+        uses: actions/cache/restore@v4
+        with:
+          path: image-out
+          key: image-v1-${{ hashFiles('image/Dockerfile', 'scripts/build-image.sh') }}
+          fail-on-cache-miss: true
+      - run: bash scripts/build.sh
+      - working-directory: tests
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+      - run: |
+          python3 -m http.server 8080 --directory dist >/dev/null 2>&1 &
+          sleep 2
+          node tests/exp-restore.mjs
