@@ -304,7 +304,11 @@ if (prompted) {
   });
   await check("Sauvegarde : la session reprend avec le fichier", async () => {
     await page.click("#btn-resume");
-    await page.waitForSelector("#machine:not([hidden])", { timeout: 240000 });
+    await page.waitForFunction(
+      () => !document.getElementById("machine").hidden || /Impossible/.test(document.getElementById("boot-status").textContent),
+      null, { timeout: 240000 }
+    );
+    if (await page.isHidden("#machine")) throw new Error("reprise refusée : " + (await page.textContent("#boot-status")));
     await hookSerial();
     const label = await page.textContent("#state-label");
     console.log("  après reprise, message de la page :", label, "| en marche :", await page.evaluate(() => window.__vm.is_running()));

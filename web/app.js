@@ -176,20 +176,30 @@
     }
 
     emulator.add_listener("emulator-ready", async () => {
+      let resumed = false;
       if (restore) {
         try {
           const state = await unpack(await dbGet());
-          if (state) {
-            await emulator.restore_state(state);
-          }
+          if (!state) throw new Error("aucune sauvegarde trouvée");
+          await emulator.restore_state(state);
+          resumed = true;
         } catch (e) {
-          setLabel("Restauration impossible : " + e.message);
+          // Ne jamais lancer une machine à moitié restaurée : on revient à l'écran de démarrage
+          console.error("Reprise impossible :", e);
+          try { await emulator.destroy(); } catch {}
+          emulator = null;
+          show("boot");
+          $("boot-status").textContent =
+            "Impossible de reprendre la session sauvegardée (" + (e && e.message ? e.message : e) + "). Tu peux démarrer à neuf.";
+          $("btn-resume").disabled = false;
+          $("btn-fresh").disabled = false;
+          return;
         }
         emulator.run();
       }
       show("machine");
       window.VMKeyboard.attach(emulator);
-      setLabel(restore ? "Session reprise." : "Linux démarre…");
+      setLabel(resumed ? "Session reprise." : "Linux démarre…");
       $("btn-resume").disabled = false;
       $("btn-fresh").disabled = false;
     });
