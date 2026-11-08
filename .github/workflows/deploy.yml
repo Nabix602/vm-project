@@ -26,9 +26,9 @@ jobs:
           node-version: 20
 
       # L'image Linux met du temps à se construire : on la garde en cache tant que le Dockerfile ne change pas
-      - name: Cache de l'image Linux
+      - name: Récupérer l'image Linux en cache
         id: imgcache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: image-out
           key: image-v1-${{ hashFiles('image/Dockerfile', 'scripts/build-image.sh') }}
@@ -38,6 +38,14 @@ jobs:
         run: |
           sudo apt-get update -y && sudo apt-get install -y zstd
           bash scripts/build-image.sh
+
+      # Sauvegardé tout de suite : même si un test échoue plus loin, l'image n'est pas reconstruite
+      - name: Mettre l'image en cache
+        if: steps.imgcache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: image-out
+          key: image-v1-${{ hashFiles('image/Dockerfile', 'scripts/build-image.sh') }}
 
       - name: Assembler le site
         run: bash scripts/build.sh

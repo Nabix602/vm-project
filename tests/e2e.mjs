@@ -31,7 +31,8 @@ const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } })
 const page = await ctx.newPage();
 page.setDefaultTimeout(60000);
 page.on("pageerror", (e) => console.log("  [pageerror]", e.message));
-page.on("console", (m) => { if (m.type() === "error") console.log("  [console.error]", m.text()); });
+let verbose = false;
+page.on("console", (m) => { if (m.type() === "error" || verbose) console.log(`  [console.${m.type()}]`, m.text().slice(0, 300)); });
 page.on("dialog", (d) => d.accept());
 
 const shot = (n) => page.screenshot({ path: `${OUT}/${n}.png` }).catch(() => {});
@@ -202,13 +203,13 @@ if (prompted) {
   // en redirigeant le résultat dans des fichiers qu'on relit ensuite par la console série.
   await page.waitForTimeout(1500);
   await check("Clavier : lettres et chiffres AZERTY", async () => {
-    await typeAzerty("echo azerty-1234.m-q>k1.txt");
+    await typeAzerty("echo azerty-1234.m-q|tee k1.txt");
     await page.waitForTimeout(1500);
     const o = await sh("cat /root/k1.txt 2>&1; ls /root", 30000);
     expect(/^azerty-1234\.m-q\s*$/m.test(o), "reçu : " + JSON.stringify(o.slice(-200)) + " | écran : " + JSON.stringify(await screenText()));
   });
   await check("Clavier : accents et AltGr (é è à ç @ |)", async () => {
-    await typeAzerty("echo é-è-à-ç-@>k2.txt");
+    await typeAzerty("echo é-è-à-ç-@|tee k2.txt");
     await page.waitForTimeout(1500);
     const o = await sh(`python3 -c "print(open('/root/k2.txt','rb').read())"`, 30000);
     expect(o.includes(String.raw`b'\xc3\xa9-\xc3\xa8-\xc3\xa0-\xc3\xa7-@\n'`), "reçu : " + o.slice(-200));
@@ -253,11 +254,20 @@ if (prompted) {
   // =========================== 6. Sauvegarde et reprise ===========================
   await check("Sauvegarde : écrire un fichier puis sauvegarder", async () => {
     await sh("echo persiste-$((40+2)) > /root/persist.txt; sync");
+    verbose = true;
     await page.click("#btn-save");
     await page.waitForFunction(
       () => /Sauvegardé|Échec/.test(document.getElementById("state-label").textContent),
-      null, { timeout: 240000 }
-    );
+      null, { timeout: 120000 }
+    ).catch(async (e) => {
+      const running = await page.evaluate(() => window.__vm.is_running());
+      const direct = await page.evaluate(() => Promise.race([
+        window.__vm.save_state().then((b) => "ok " + b.byteLength),
+        new Promise((r) => setTimeout(() => r("toujours bloqué après 60 s"), 60000))
+      ]));
+      throw new Error(`message : ${await page.textContent("#state-label")} | en marche : ${running} | save_state direct : ${direct}`);
+    });
+    verbose = false;
     const label = await page.textContent("#state-label");
     expect(/Sauvegardé/.test(label), label);
     return label;
