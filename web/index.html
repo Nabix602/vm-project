@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VM Project</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Écran 1 : verrouillage -->
+  <main id="lock" class="screen">
+    <div class="card">
+      <h1>VM Project</h1>
+      <p id="lock-text">Choisis un code d'accès pour cet appareil.</p>
+      <form id="lock-form" autocomplete="off">
+        <input id="lock-input" type="password" inputmode="numeric" placeholder="Code" required>
+        <button type="submit" id="lock-button">Créer le code</button>
+      </form>
+      <p id="lock-error" class="error" hidden></p>
+      <p class="hint">Ce code est propre à ce navigateur. Il garde l'accès à la machine, il ne remplace pas un vrai mot de passe serveur.</p>
+    </div>
+  </main>
+
+  <!-- Écran 2 : démarrage -->
+  <main id="boot" class="screen" hidden>
+    <div class="card">
+      <h1>Démarrer la machine</h1>
+      <p id="boot-text">Un Linux complet va démarrer dans cet onglet.</p>
+      <div class="row">
+        <button id="btn-resume" hidden>Reprendre la session sauvegardée</button>
+        <button id="btn-fresh">Démarrer à neuf</button>
+      </div>
+      <p id="boot-status" class="hint"></p>
+    </div>
+  </main>
+
+  <!-- Écran 3 : la machine -->
+  <section id="machine" hidden>
+    <header class="bar">
+      <strong>VM Project</strong>
+      <span id="state-label" class="hint"></span>
+      <span class="spacer"></span>
+      <button id="btn-save">Sauvegarder</button>
+      <button id="btn-fullscreen">Plein écran</button>
+      <button id="btn-stop" class="danger">Éteindre</button>
+    </header>
+    <div id="screen_container">
+      <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
+      <canvas style="display: none"></canvas>
+    </div>
+    <p class="hint center">Clique sur l'écran pour taper au clavier.</p>
+  </section>
+
+  <script src="config.js"></script>
+  <script src="build/libv86.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
