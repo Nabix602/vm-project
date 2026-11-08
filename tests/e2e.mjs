@@ -18,7 +18,7 @@ async function check(name, fn, { critical = true } = {}) {
     console.log(`[${secs()}] OK    ${name}${detail ? " — " + String(detail).slice(0, 200) : ""}`);
     return true;
   } catch (e) {
-    const msg = String(e && e.message ? e.message : e).split("\n")[0].slice(0, 300);
+    const msg = String(e && e.message ? e.message : e).replace(/\s*\n\s*/g, " ⏎ ").slice(0, 500);
     results.push({ name, ok: false, critical, detail: msg });
     console.log(`[${secs()}] FAIL  ${critical ? "" : "(info) "}${name} — ${msg}`);
     return false;
@@ -77,13 +77,33 @@ async function sh(cmd, timeoutMs = 60000) {
   throw new Error(`délai dépassé pour : ${cmd}`);
 }
 
-const vgaText = () => page.evaluate(() => document.querySelector("#screen_container div")?.innerText || "");
-async function typeKeys(codes, { shift = false } = {}) {
-  for (const c of codes) {
-    if (c === "Shift+") continue;
-    await page.keyboard.press(c);
-    await page.waitForTimeout(40);
+// Ce que Linux affiche à l'écran (console tty1), lu depuis le système lui-même
+const screenText = async () => (await sh("fold -w 80 /dev/vcs1 | tr -d '\\000' | sed 's/ *$//' | grep -v '^$' | tail -12", 30000).catch((e) => "(écran illisible : " + e.message + ")"));
+
+// Touches physiques d'un clavier AZERTY français : caractère -> [modificateur, touche]
+const AZERTY = {
+  a: [null, "KeyQ"], z: [null, "KeyW"], q: [null, "KeyA"], w: [null, "KeyZ"], m: [null, "Semicolon"],
+  ",": [null, "KeyM"], ";": [null, "Comma"], ":": [null, "Period"], "!": [null, "Slash"],
+  ".": ["ShiftLeft", "Comma"], "/": ["ShiftLeft", "Period"],
+  "-": [null, "Digit6"], "_": [null, "Digit8"], " ": [null, "Space"],
+  "<": [null, "IntlBackslash"], ">": ["ShiftLeft", "IntlBackslash"],
+  "é": [null, "Digit2"], "è": [null, "Digit7"], "ç": [null, "Digit9"], "à": [null, "Digit0"],
+  "|": ["AltRight", "Digit6"], "@": ["AltRight", "Digit0"], "#": ["AltRight", "Digit3"],
+  "{": ["AltRight", "Digit4"], "[": ["AltRight", "Digit5"], "\\": ["AltRight", "Digit8"]
+};
+for (const c of "etyuiopdfghjklxcvbn") AZERTY[c] = [null, "Key" + c.toUpperCase()];
+for (const c of "rs") AZERTY[c] = [null, "Key" + c.toUpperCase()];
+for (const d of "1234567890") AZERTY[d] = ["ShiftLeft", d === "0" ? "Digit0" : "Digit" + d];
+
+async function typeAzerty(text) {
+  for (const ch of text) {
+    const [mod, code] = AZERTY[ch] || (() => { throw new Error("touche inconnue : " + ch); })();
+    if (mod) await page.keyboard.down(mod);
+    await page.keyboard.press(code);
+    if (mod) await page.keyboard.up(mod);
+    await page.waitForTimeout(60);
   }
+  await page.keyboard.press("Enter");
 }
 
 // =========================== 1. Écran de verrouillage ===========================
@@ -165,8 +185,8 @@ if (prompted) {
     expect((await sh("node -e 'console.log(6*7)'")).includes("42"), "pas de 42");
   });
   await check("gcc compile et lance un programme C", async () => {
-    const o = await sh(`printf '#include <stdio.h>\\nint main(){printf("c-%d\\\\n",6*7);return 0;}\\n' > /tmp/h.c && gcc /tmp/h.c -o /tmp/h && /tmp/h`, 120000);
-    expect(o.includes("c-42"), o.slice(-200));
+    const o = await sh(`printf '#include <stdio.h>\\nint main(){puts("c-" "4" "2");return 0;}\\n' > /tmp/h.c && gcc /tmp/h.c -o /tmp/h && /tmp/h`, 120000);
+    expect(/^c-42/m.test(o), o.slice(-300));
   });
   await check("git : init, commit, historique", async () => {
     const o = await sh(`cd /tmp && rm -rf r && git init -q r && cd r && git config user.email a@b.c && git config user.name t && echo x > f && git add f && git commit -qm premier && git log --oneline | wc -l`, 60000);
@@ -178,25 +198,22 @@ if (prompted) {
   }, { critical: false });
 
   // =========================== 4. Clavier français (touches physiques) ===========================
-  await page.mouse.click(640, 300);
-  await check("Clavier : AZERTY (a est sur la touche Q)", async () => {
-    // `echo azerty` tapé avec les touches physiques d'un clavier AZERTY
-    await typeKeys(["KeyE", "KeyC", "KeyH", "KeyO", "Space", "KeyQ", "KeyW", "KeyE", "KeyR", "KeyT", "KeyY", "Enter"]);
+  // On tape sur la console de l'écran (tty1) avec les touches physiques d'un clavier AZERTY,
+  // en redirigeant le résultat dans des fichiers qu'on relit ensuite par la console série.
+  await page.waitForTimeout(1500);
+  await check("Clavier : lettres et chiffres AZERTY", async () => {
+    await typeAzerty("echo azerty-1234.m-q>k1.txt");
     await page.waitForTimeout(1500);
-    const v = await vgaText();
-    const n = (v.match(/azerty/g) || []).length;
-    expect(n >= 2, `"azerty" vu ${n} fois sur l'écran`);
+    const o = await sh("cat /root/k1.txt 2>&1; ls /root", 30000);
+    expect(/^azerty-1234\.m-q\s*$/m.test(o), "reçu : " + JSON.stringify(o.slice(-200)) + " | écran : " + JSON.stringify(await screenText()));
   });
-  await check("Clavier : chiffres avec Maj et é sans Maj", async () => {
-    // echo é puis echo 1 (Maj + touche 1)
-    await typeKeys(["KeyE", "KeyC", "KeyH", "KeyO", "Space", "Digit2", "Enter"]);
-    await page.keyboard.down("ShiftLeft");
-    await page.keyboard.press("Digit1");
-    await page.keyboard.up("ShiftLeft");
-    await page.waitForTimeout(800);
-    const v = await vgaText();
-    expect((v.match(/é/g) || []).length >= 2, "é absent de l'écran : " + JSON.stringify(v.slice(-200)));
+  await check("Clavier : accents et AltGr (é è à ç @ |)", async () => {
+    await typeAzerty("echo é-è-à-ç-@>k2.txt");
+    await page.waitForTimeout(1500);
+    const o = await sh(`python3 -c "print(open('/root/k2.txt','rb').read())"`, 30000);
+    expect(o.includes(String.raw`b'\xc3\xa9-\xc3\xa8-\xc3\xa0-\xc3\xa7-@\n'`), "reçu : " + o.slice(-200));
   }, { critical: false });
+  console.log("  écran :\n" + (await screenText()));
   await shot("02-clavier");
 
   // =========================== 5. Internet ===========================
@@ -254,10 +271,14 @@ if (prompted) {
     await page.click("#btn-resume");
     await page.waitForSelector("#machine:not([hidden])", { timeout: 240000 });
     await hookSerial();
-    await page.waitForTimeout(2000);
-    await page.evaluate(() => window.__vm.serial0_send("\n"));
-    await page.waitForTimeout(1500);
-    const o = await sh("cat /root/persist.txt", 90000);
+    const label = await page.textContent("#state-label");
+    console.log("  après reprise, message de la page :", label, "| en marche :", await page.evaluate(() => window.__vm.is_running()));
+    await page.waitForTimeout(3000);
+    for (let i = 0; i < 4; i++) { await page.evaluate(() => window.__vm.serial0_send("\n")); await page.waitForTimeout(1500); }
+    console.log("  série après reprise :", JSON.stringify((await serialText()).slice(-300)));
+    const o = await sh("cat /root/persist.txt", 90000).catch(async (e) => {
+      throw new Error(e.message + " | série : " + JSON.stringify((await serialText()).slice(-300)) + " | message : " + (await page.textContent("#state-label")));
+    });
     expect(o.includes("persiste-42"), o.slice(-200));
   });
   await shot("03-apres-reprise");
