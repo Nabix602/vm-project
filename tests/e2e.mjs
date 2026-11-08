@@ -26,9 +26,13 @@ async function check(name, fn, { critical = true } = {}) {
 }
 function expect(cond, msg) { if (!cond) throw new Error(msg); }
 
-const browser = await chromium.launch({ args: ["--no-sandbox"] });
-const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-const page = await ctx.newPage();
+// Profil persistant (comme un vrai navigateur, pas une fenêtre privée : les quotas de stockage sont normaux)
+const ctx = await chromium.launchPersistentContext(fs.mkdtempSync("/tmp/profil-"), {
+  args: ["--no-sandbox"],
+  viewport: { width: 1280, height: 900 }
+});
+const browser = ctx;
+const page = ctx.pages()[0] || (await ctx.newPage());
 page.setDefaultTimeout(60000);
 page.on("pageerror", (e) => console.log("  [pageerror]", e.message));
 let verbose = false;

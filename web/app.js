@@ -48,7 +48,32 @@
       tx.objectStore(STORE).put(value, KEY);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
+      // espace de stockage insuffisant, navigation privée, etc.
+      tx.onabort = () => reject(tx.error || new Error("stockage refusé par le navigateur (espace insuffisant ?)"));
     });
+  }
+
+  async function dbHas() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const req = db.transaction(STORE).objectStore(STORE).count(KEY);
+      req.onsuccess = () => resolve(req.result > 0);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  // L'état de la machine est surtout de la mémoire vide : compressé, il est 3 à 10 fois plus petit.
+  async function pack(buf) {
+    if (typeof CompressionStream === "undefined") return { gz: false, data: buf };
+    const data = await new Response(new Blob([buf]).stream().pipeThrough(new CompressionStream("gzip"))).arrayBuffer();
+    return { gz: true, data };
+  }
+
+  async function unpack(rec) {
+    if (!rec) return null;
+    if (rec instanceof ArrayBuffer) return rec;           // ancien format (non compressé)
+    if (!rec.gz) return rec.data;
+    return new Response(new Blob([rec.data]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
   }
 
   // ---------- Écrans ----------
@@ -101,7 +126,7 @@
 
   async function initBoot() {
     show("boot");
-    try { hasSaved = !!(await dbGet()); } catch { hasSaved = false; }
+    try { hasSaved = await dbHas(); } catch { hasSaved = false; }
     $("btn-resume").hidden = !hasSaved;
     $("boot-status").textContent = hasSaved
       ? "Une session sauvegardée existe sur cet appareil."
@@ -153,7 +178,7 @@
     emulator.add_listener("emulator-ready", async () => {
       if (restore) {
         try {
-          const state = await dbGet();
+          const state = await unpack(await dbGet());
           if (state) {
             await emulator.restore_state(state);
           }
@@ -193,8 +218,11 @@
     setLabel("Sauvegarde en cours…");
     try {
       const state = await saveState();
-      await dbPut(state);
-      const mb = (state.byteLength / 1048576).toFixed(1);
+      setLabel("Compression…");
+      const rec = await pack(state);
+      setLabel("Enregistrement…");
+      await dbPut(rec);
+      const mb = (rec.data.byteLength / 1048576).toFixed(1);
       setLabel("Sauvegardé (" + mb + " Mo) à " + new Date().toLocaleTimeString("fr-FR"));
     } catch (e) {
       setLabel("Échec de la sauvegarde : " + e.message);
