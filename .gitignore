@@ -1,2 +1,4 @@
 dist/
 node_modules/
+image-out/
+tests/out/

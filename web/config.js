@@ -1,13 +1,14 @@
 // Réglages de la machine. Modifie ici, pas dans app.js.
 window.VM_CONFIG = {
   // Mémoire vive de la machine, en Mo.
-  memoryMB: 64,
+  memoryMB: 256,
 
-  // Image Linux à démarrer (copiée dans images/ au moment de la publication).
-  kernel: "images/buildroot-bzimage68.bin",
-  cmdline: "tsc=reliable mitigations=off random.trust_cpu=on",
+  // Système de fichiers Linux (construit par GitHub Actions, voir image/Dockerfile).
+  fsJson: "images/alpine-fs.json",
+  fsBase: "images/alpine-rootfs-flat/",
+  cmdline: "rw root=host9p rootfstype=9p rootflags=trans=virtio,cache=loose modules=virtio_pci tsc=reliable init_on_free=on",
 
-  // Accès Internet : adresse du relais réseau (étape suivante du projet).
-  // Laisser vide pour l'instant : la machine démarre sans réseau.
-  networkRelay: ""
+  // Accès Internet : adresse d'un relais réseau public (sans compte).
+  // Mettre "" pour démarrer sans réseau.
+  networkRelay: "wss://relay.widgetry.org/"
 };

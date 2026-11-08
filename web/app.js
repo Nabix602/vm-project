@@ -127,18 +127,22 @@
     const options = {
       wasm_path: "build/v86.wasm",
       memory_size: cfg.memoryMB * 1024 * 1024,
-      vga_memory_size: 2 * 1024 * 1024,
+      vga_memory_size: 8 * 1024 * 1024,
       screen_container: $("screen_container"),
       bios: { url: "bios/seabios.bin" },
       vga_bios: { url: "bios/vgabios.bin" },
-      bzimage: { url: cfg.kernel },
+      bzimage_initrd_from_filesystem: true,
       cmdline: cfg.cmdline,
+      filesystem: { baseurl: cfg.fsBase, basefs: cfg.fsJson },
       autostart: !restore
     };
-    if (cfg.networkRelay) options.network_relay_url = cfg.networkRelay;
+    if (cfg.networkRelay) {
+      options.net_device = { type: "virtio", relay_url: cfg.networkRelay };
+    }
 
     try {
       emulator = new Ctor(options);
+      window.__vm = emulator; // utilisé par les tests automatiques
     } catch (e) {
       $("boot-status").textContent = "Erreur au démarrage : " + e.message;
       $("btn-resume").disabled = false;
@@ -159,7 +163,7 @@
         emulator.run();
       }
       show("machine");
-      window.FrenchKeyboard.attach(emulator);
+      window.VMKeyboard.attach(emulator);
       setLabel(restore ? "Session reprise." : "Machine démarrée.");
       $("btn-resume").disabled = false;
       $("btn-fresh").disabled = false;
@@ -201,7 +205,7 @@
   async function onStop() {
     if (!emulator) return;
     if (!confirm("Éteindre la machine ? Ce qui n'est pas sauvegardé sera perdu.")) return;
-    window.FrenchKeyboard.detach();
+    window.VMKeyboard.detach();
     try { await emulator.destroy(); } catch {}
     emulator = null;
     $("screen_container").querySelector("div").textContent = "";

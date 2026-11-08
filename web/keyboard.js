@@ -1,120 +1,87 @@
-// Clavier français (AZERTY) pour la machine.
-//
-// Le Linux de la machine croit avoir un clavier américain (QWERTY). Plutôt que de
-// charger une disposition dans Linux, on lit le caractère que ton clavier produit
-// (event.key) et on envoie à la machine la touche américaine qui donne ce même caractère.
-// Résultat : ce que tu tapes est ce qui s'affiche, quelle que soit ta disposition.
+// Clavier : on envoie à la machine la TOUCHE PHYSIQUE appuyée (event.code), pas le caractère.
+// C'est le Linux de la machine, réglé en français (voir image/Dockerfile), qui traduit
+// la touche en caractère : accents, AltGr, touches mortes, tout fonctionne comme sur un vrai PC.
 (() => {
-  // caractère -> [code de touche (scancode PS/2), Maj nécessaire ?]
-  const CHARS = {};
-  function add(chars, start, shift) {
-    [...chars].forEach((c, i) => { CHARS[c] = [start + i, shift]; });
-  }
-  add("1234567890-=", 0x02, false);
-  add("!@#$%^&*()_+", 0x02, true);
-  add("qwertyuiop[]", 0x10, false);
-  add("QWERTYUIOP{}", 0x10, true);
-  add("asdfghjkl;'`", 0x1e, false);
-  add('ASDFGHJKL:"~', 0x1e, true);
-  CHARS["\\"] = [0x2b, false];
-  CHARS["|"] = [0x2b, true];
-  add("zxcvbnm,./", 0x2c, false);
-  add("ZXCVBNM<>?", 0x2c, true);
-  CHARS[" "] = [0x39, false];
-
-  // touches spéciales : [codes] (E0 = touche étendue)
-  const SPECIAL = {
-    Enter: [0x1c],
-    Backspace: [0x0e],
-    Tab: [0x0f],
+  // Codes PS/2 "set 1". Les touches étendues sont préfixées par 0xE0.
+  const MAP = {
     Escape: [0x01],
-    ArrowUp: [0xe0, 0x48],
-    ArrowDown: [0xe0, 0x50],
-    ArrowLeft: [0xe0, 0x4b],
-    ArrowRight: [0xe0, 0x4d],
-    Home: [0xe0, 0x47],
-    End: [0xe0, 0x4f],
-    PageUp: [0xe0, 0x49],
-    PageDown: [0xe0, 0x51],
-    Insert: [0xe0, 0x52],
-    Delete: [0xe0, 0x53]
+    Digit1: [0x02], Digit2: [0x03], Digit3: [0x04], Digit4: [0x05], Digit5: [0x06],
+    Digit6: [0x07], Digit7: [0x08], Digit8: [0x09], Digit9: [0x0a], Digit0: [0x0b],
+    Minus: [0x0c], Equal: [0x0d], Backspace: [0x0e], Tab: [0x0f],
+    KeyQ: [0x10], KeyW: [0x11], KeyE: [0x12], KeyR: [0x13], KeyT: [0x14],
+    KeyY: [0x15], KeyU: [0x16], KeyI: [0x17], KeyO: [0x18], KeyP: [0x19],
+    BracketLeft: [0x1a], BracketRight: [0x1b], Enter: [0x1c], ControlLeft: [0x1d],
+    KeyA: [0x1e], KeyS: [0x1f], KeyD: [0x20], KeyF: [0x21], KeyG: [0x22],
+    KeyH: [0x23], KeyJ: [0x24], KeyK: [0x25], KeyL: [0x26],
+    Semicolon: [0x27], Quote: [0x28], Backquote: [0x29], ShiftLeft: [0x2a], Backslash: [0x2b],
+    KeyZ: [0x2c], KeyX: [0x2d], KeyC: [0x2e], KeyV: [0x2f], KeyB: [0x30],
+    KeyN: [0x31], KeyM: [0x32], Comma: [0x33], Period: [0x34], Slash: [0x35],
+    ShiftRight: [0x36], NumpadMultiply: [0x37], AltLeft: [0x38], Space: [0x39], CapsLock: [0x3a],
+    F1: [0x3b], F2: [0x3c], F3: [0x3d], F4: [0x3e], F5: [0x3f],
+    F6: [0x40], F7: [0x41], F8: [0x42], F9: [0x43], F10: [0x44],
+    NumLock: [0x45], ScrollLock: [0x46],
+    Numpad7: [0x47], Numpad8: [0x48], Numpad9: [0x49], NumpadSubtract: [0x4a],
+    Numpad4: [0x4b], Numpad5: [0x4c], Numpad6: [0x4d], NumpadAdd: [0x4e],
+    Numpad1: [0x4f], Numpad2: [0x50], Numpad3: [0x51], Numpad0: [0x52], NumpadDecimal: [0x53],
+    IntlBackslash: [0x56], F11: [0x57], F12: [0x58],
+    NumpadEnter: [0xe0, 0x1c], ControlRight: [0xe0, 0x1d], NumpadDivide: [0xe0, 0x35],
+    AltRight: [0xe0, 0x38],
+    Home: [0xe0, 0x47], ArrowUp: [0xe0, 0x48], PageUp: [0xe0, 0x49],
+    ArrowLeft: [0xe0, 0x4b], ArrowRight: [0xe0, 0x4d],
+    End: [0xe0, 0x4f], ArrowDown: [0xe0, 0x50], PageDown: [0xe0, 0x51],
+    Insert: [0xe0, 0x52], Delete: [0xe0, 0x53]
   };
-  const IGNORED = ["Shift", "Control", "Alt", "AltGraph", "Meta", "CapsLock", "Dead", "Unidentified"];
-  const SHIFT = 0x2a, CTRL = 0x1d, ALT = 0x38;
+  // Ces touches restent au navigateur (actualiser, plein écran, outils)
+  const BROWSER_KEYS = ["F5", "F11", "F12"];
 
   let emu = null;
+  const down = new Set();
 
-  function press(codes) {
-    // appui + relâchement d'une touche (les extensions E0 gardent leur préfixe)
-    if (codes[0] === 0xe0) return [0xe0, codes[1], 0xe0, codes[1] | 0x80];
-    return [codes[0], codes[0] | 0x80];
+  function make(code) {
+    const m = MAP[code];
+    return m.length === 2 ? [m[0], m[1]] : [m[0]];
+  }
+  function brk(code) {
+    const m = MAP[code];
+    return m.length === 2 ? [m[0], m[1] | 0x80] : [m[0] | 0x80];
   }
 
   function onKeyDown(e) {
     if (!emu) return;
     const t = e.target;
     if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
-    if (e.metaKey) return;
-
-    const key = e.key;
-    if (IGNORED.includes(key)) {
-      if (key === "Dead") e.preventDefault();
-      return;
-    }
-    // F5, F11, F12 restent au navigateur (actualiser, plein écran, outils)
-    if (key === "F5" || key === "F11" || key === "F12") return;
-
-    const altgr = e.getModifierState && e.getModifierState("AltGraph");
-    const ctrlAlt = e.ctrlKey && e.altKey;           // AltGr sous Windows
-    const ctrl = e.ctrlKey && !altgr && !ctrlAlt;
-    const alt = e.altKey && !altgr && !e.ctrlKey;
-
-    let body = null;
-    let needShift = false;
-
-    if (SPECIAL[key]) {
-      body = press(SPECIAL[key]);
-      needShift = e.shiftKey;
-    } else if (/^F([1-9]|10)$/.test(key)) {
-      body = press([0x3b + parseInt(key.slice(1), 10) - 1]);
-      needShift = e.shiftKey;
-    } else if (key.length === 1) {
-      const entry = CHARS[ctrl ? key.toLowerCase() : key];
-      if (!entry) { e.preventDefault(); return; }   // ex. é, è, à : pas de touche américaine
-      body = press([entry[0]]);
-      needShift = ctrl ? false : entry[1];
-    } else {
-      return;
-    }
-
-    const seq = [];
-    if (ctrl) seq.push(CTRL);
-    if (alt) seq.push(ALT);
-    if (needShift) seq.push(SHIFT);
-    seq.push(...body);
-    if (needShift) seq.push(SHIFT | 0x80);
-    if (alt) seq.push(ALT | 0x80);
-    if (ctrl) seq.push(CTRL | 0x80);
-
+    if (e.metaKey || BROWSER_KEYS.includes(e.code) || !MAP[e.code]) return;
     e.preventDefault();
-    emu.keyboard_send_scancodes(seq);
+    down.add(e.code);
+    emu.keyboard_send_scancodes(make(e.code));
   }
 
   function onKeyUp(e) {
-    // le relâchement est déjà envoyé avec l'appui
-    if (emu) e.preventDefault();
+    if (!emu || !MAP[e.code]) return;
+    e.preventDefault();
+    if (down.delete(e.code)) emu.keyboard_send_scancodes(brk(e.code));
   }
 
-  window.FrenchKeyboard = {
+  function releaseAll() {
+    if (!emu) return;
+    for (const code of down) emu.keyboard_send_scancodes(brk(code));
+    down.clear();
+  }
+
+  window.VMKeyboard = {
     attach(emulator) {
       emu = emulator;
-      try { emu.keyboard_set_status(false); } catch {}   // coupe le clavier natif de v86
+      // coupe le clavier intégré de v86, pour ne pas envoyer les touches deux fois
+      try { emu.keyboard_set_enabled(false); } catch {}
       document.addEventListener("keydown", onKeyDown, true);
       document.addEventListener("keyup", onKeyUp, true);
+      window.addEventListener("blur", releaseAll);
     },
     detach() {
       document.removeEventListener("keydown", onKeyDown, true);
       document.removeEventListener("keyup", onKeyUp, true);
+      window.removeEventListener("blur", releaseAll);
+      down.clear();
       emu = null;
     }
   };

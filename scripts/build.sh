@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
-# Assemble le site dans dist/ : les pages de web/ + l'émulateur v86 + l'image Linux.
-# Lancé par GitHub Actions au moment de la publication (le réseau y est ouvert).
+# Assemble le site dans dist/ : pages de web/ + émulateur v86 + BIOS + image Linux (image-out/).
+# Lancé par GitHub Actions après build-image.sh.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIST="$ROOT/dist"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
+
+if [ ! -f "$ROOT/image-out/alpine-fs.json" ]; then
+  echo "ERREUR : image-out/ absent, lance d'abord scripts/build-image.sh" >&2
+  exit 1
+fi
 
 rm -rf "$DIST"
 mkdir -p "$DIST/build" "$DIST/bios" "$DIST/images"
@@ -18,46 +23,25 @@ cp -r "$ROOT"/web/. "$DIST"/
 echo "==> Installation du paquet npm v86"
 (cd "$WORK" && npm init -y >/dev/null && npm install v86 >/dev/null)
 PKG="$WORK/node_modules/v86"
+grep '"version"' "$PKG/package.json"
 
-echo "==> Contenu du paquet :"
-ls -la "$PKG" "$PKG/build" "$PKG/bios" 2>/dev/null || true
-
-copy_required() {
-  local src="$1" dst="$2"
-  if [ ! -f "$src" ]; then
-    echo "ERREUR : fichier introuvable dans le paquet v86 : $src" >&2
-    exit 1
-  fi
-  cp "$src" "$dst"
-}
-
-copy_required "$PKG/build/v86.wasm" "$DIST/build/v86.wasm"
-# Version de secours pour les navigateurs sans toutes les options WebAssembly récentes
+cp "$PKG/build/v86.wasm"    "$DIST/build/v86.wasm"
+cp "$PKG/build/libv86.js"   "$DIST/build/libv86.js"
 [ -f "$PKG/build/v86-fallback.wasm" ] && cp "$PKG/build/v86-fallback.wasm" "$DIST/build/v86-fallback.wasm"
 
-# Les BIOS ne sont pas dans le paquet npm : on les prend dans le dépôt de v86
+# 3. Les BIOS ne sont pas dans le paquet npm : on les prend dans le dépôt de v86
 echo "==> Téléchargement des BIOS"
 for f in seabios.bin vgabios.bin; do
   curl -fsSL -o "$DIST/bios/$f" "https://raw.githubusercontent.com/copy/v86/master/bios/$f" \
     || curl -fsSL -o "$DIST/bios/$f" "https://copy.sh/v86/bios/$f"
 done
 
-# libv86.js : dans le paquet si présent, sinon depuis la dernière release GitHub
-if [ -f "$PKG/build/libv86.js" ]; then
-  cp "$PKG/build/libv86.js" "$DIST/build/libv86.js"
-else
-  echo "==> libv86.js absent du paquet, téléchargement depuis la release GitHub"
-  curl -fsSL -o "$DIST/build/libv86.js" \
-    "https://github.com/copy/v86/releases/download/latest/libv86.js"
-fi
-
-# 3. L'image Linux (Buildroot, hébergée par l'auteur de v86)
-echo "==> Téléchargement de l'image Linux"
-curl -fsSL -o "$DIST/images/buildroot-bzimage68.bin" \
-  "https://i.copy.sh/buildroot-bzimage68.bin"
+# 4. L'image Linux
+cp -r "$ROOT"/image-out/. "$DIST/images/"
 
 # GitHub Pages : ne pas passer par Jekyll
 touch "$DIST/.nojekyll"
 
 echo "==> Site prêt dans $DIST"
-du -sh "$DIST"/*
+du -sh "$DIST"/* | sort -h
+echo "fichiers : $(find "$DIST" -type f | wc -l)"

@@ -1,4 +1,4 @@
-name: Publier la VM sur GitHub Pages
+name: Construire, tester et publier la VM
 
 on:
   push:
@@ -17,6 +17,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
 
@@ -24,8 +25,42 @@ jobs:
         with:
           node-version: 20
 
+      # L'image Linux met du temps à se construire : on la garde en cache tant que le Dockerfile ne change pas
+      - name: Cache de l'image Linux
+        id: imgcache
+        uses: actions/cache@v4
+        with:
+          path: image-out
+          key: image-v1-${{ hashFiles('image/Dockerfile', 'scripts/build-image.sh') }}
+
+      - name: Construire l'image Linux
+        if: steps.imgcache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y zstd
+          bash scripts/build-image.sh
+
       - name: Assembler le site
         run: bash scripts/build.sh
+
+      - name: Installer le navigateur de test
+        working-directory: tests
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+
+      - name: Tester le site dans un vrai navigateur
+        run: |
+          python3 -m http.server 8080 --directory dist >/dev/null 2>&1 &
+          sleep 2
+          node tests/e2e.mjs
+
+      - name: Garder les captures et journaux du test
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resultats-tests
+          path: tests/out
+          if-no-files-found: ignore
 
       - uses: actions/configure-pages@v5
 
