@@ -85,3 +85,29 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # Dernier contrôle : on rejoue les tests sur l'adresse publique, comme le ferait un visiteur
+  smoke:
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Installer le navigateur de test
+        working-directory: tests
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+
+      - name: Tester le site publié
+        env:
+          BASE_URL: https://${{ github.repository_owner }}.github.io/vm-project/
+          OUT_DIR: tests/out-public
+        run: |
+          for i in $(seq 1 30); do curl -fsI "$BASE_URL" >/dev/null && break; sleep 10; done
+          node tests/e2e.mjs

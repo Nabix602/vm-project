@@ -157,6 +157,27 @@ const prompted = booted && await check("Démarrage : Linux arrive jusqu'au promp
 await shot("01-apres-demarrage");
 
 if (prompted) {
+  await check("Écran : la console de Linux est bien affichée", async () => {
+    await page.waitForTimeout(1500);
+    const r = await page.evaluate(() => {
+      const c = document.querySelector("#screen_container canvas");
+      const d = document.querySelector("#screen_container div");
+      const textLen = (d?.innerText || "").trim().length;
+      let lit = 0, shown = false, w = 0, h = 0;
+      if (c) {
+        shown = getComputedStyle(c).display !== "none";
+        w = c.width; h = c.height;
+        try {
+          const data = c.getContext("2d").getImageData(0, 0, w, h).data;
+          for (let i = 0; i < data.length; i += 4) if (data[i] + data[i + 1] + data[i + 2] > 60) lit++;
+        } catch (e) { /* canvas illisible */ }
+      }
+      return { canvasVisible: shown, w, h, pixelsClairs: lit, caracteres: textLen };
+    });
+    expect((r.canvasVisible && r.pixelsClairs > 500) || r.caracteres > 50, "écran vide : " + JSON.stringify(r));
+    return JSON.stringify(r);
+  });
+
   // =========================== 3. Système et outils ===========================
   await check("Linux : noyau et architecture", async () => {
     const o = await sh("uname -srm");

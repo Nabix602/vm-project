@@ -189,7 +189,7 @@
       }
       show("machine");
       window.VMKeyboard.attach(emulator);
-      setLabel(restore ? "Session reprise." : "Machine démarrée.");
+      setLabel(restore ? "Session reprise." : "Linux démarre…");
       $("btn-resume").disabled = false;
       $("btn-fresh").disabled = false;
     });
