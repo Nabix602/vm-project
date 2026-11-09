@@ -31,7 +31,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: image-out
-          key: image-v1-${{ hashFiles('image/Dockerfile', 'scripts/build-image.sh') }}
+          key: image-v1-${{ hashFiles('image/**', 'scripts/build-image.sh') }}
 
       - name: Construire l'image Linux
         if: steps.imgcache.outputs.cache-hit != 'true'
@@ -45,7 +45,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: image-out
-          key: image-v1-${{ hashFiles('image/Dockerfile', 'scripts/build-image.sh') }}
+          key: image-v1-${{ hashFiles('image/**', 'scripts/build-image.sh') }}
 
       - name: Assembler le site
         run: bash scripts/build.sh

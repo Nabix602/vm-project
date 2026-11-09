@@ -50,6 +50,7 @@ clock_background_id = 0
 launcher_padding = 4 2 6
 launcher_background_id = 0
 launcher_icon_size = 24
+launcher_icon_theme = AdwaitaLegacy
 launcher_item_app = /usr/share/applications/vm-terminal.desktop
 launcher_item_app = /usr/share/applications/vm-fichiers.desktop
 launcher_item_app = /usr/share/applications/vm-editeur.desktop

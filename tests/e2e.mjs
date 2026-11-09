@@ -262,7 +262,7 @@ if (prompted) {
       const end = Date.now() + 180000;
       let o = "";
       while (Date.now() < end) {
-        o = await sh("for p in openbox tint2 pcmanfm; do pgrep -x $p >/dev/null && echo up-$p || echo down-$p; done", 30000);
+        o = await sh("ps | grep -q '[/]usr/bin/openbox' && echo up-openbox || echo down-openbox; ps | grep -q '[t]int2' && echo up-tint2 || echo down-tint2; ps | grep -q '[p]cmanfm --desktop' && echo up-pcmanfm || echo down-pcmanfm", 30000);
         if (/up-openbox/.test(o) && /up-tint2/.test(o) && /up-pcmanfm/.test(o)) return "openbox, tint2, pcmanfm actifs";
         await page.waitForTimeout(4000);
       }
@@ -270,6 +270,7 @@ if (prompted) {
       console.log("  diagnostic openbox :\n" + diag);
       throw new Error(o.replace(/\s+/g, " ").slice(-60));
     });
+    await check("Bureau : thèmes d'icônes installés", async () => (await sh("ls /usr/share/icons", 20000)).replace(/\s+/g, " ").slice(0, 200), { critical: false });
     await page.waitForTimeout(5000);
     const ascii = await asciiScreen();
     console.log("  aperçu du bureau (luminosité) :\n" + ascii);
@@ -303,7 +304,7 @@ if (prompted) {
       ["Terminal", "lxterminal", "--class '[Ll]xterminal'", true]
     ]) {
       await check(`Bureau : ${label} s'ouvre`, async () => {
-        await sh(`(${X}${cmd} >/tmp/app.log 2>&1 &); sleep 1`, 30000);
+        await sh(`cd /root; (${X}${cmd} >/tmp/app.log 2>&1 &); sleep 1`, 30000);
         const end = Date.now() + 150000;
         while (Date.now() < end) {
           const o = await sh(`${X}xdotool search --onlyvisible ${search} 2>&1 | head -1`, 30000);
