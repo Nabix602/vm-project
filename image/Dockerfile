@@ -8,6 +8,13 @@ RUN apk add --no-cache \
     kbd-bkeymaps nano less git python3 py3-pip nodejs npm \
     curl wget ca-certificates openssh-client make gcc musl-dev
 
+# Bureau graphique léger : X11 sur le framebuffer, Openbox, barre des tâches, fichiers, terminal, éditeur, navigateur
+RUN apk add --no-cache \
+    xorg-server xinit xauth xkeyboard-config xf86-video-fbdev xf86-input-libinput \
+    eudev udev-init-scripts udev-init-scripts-openrc dbus dbus-x11 \
+    openbox tint2 pcmanfm lxterminal mousepad xdotool \
+    adwaita-icon-theme font-dejavu netsurf
+
 # Connexion automatique (console écran + console série), sans mot de passe
 RUN sed -i 's/getty 38400 tty1/agetty --autologin root tty1 linux/' /etc/inittab
 RUN echo 'ttyS0::respawn:/sbin/agetty --autologin root -s ttyS0 115200 vt100' >> /etc/inittab
@@ -32,8 +39,22 @@ RUN mkdir -p /etc/local.d && printf '%s\n' \
 
 RUN printf 'VM Project - Alpine Linux dans ton navigateur\n\n' > /etc/motd
 
+# Réglages du bureau (voir image/overlay/)
+COPY overlay/ /
+RUN set -e; \
+    BR=$(command -v netsurf-gtk3 || command -v netsurf-gtk || command -v netsurf || echo netsurf-gtk3); \
+    mk() { printf '[Desktop Entry]\nType=Application\nName=%s\nExec=%s\nIcon=%s\nTerminal=false\nCategories=Utility;\n' "$1" "$2" "$3" > "/usr/share/applications/$4.desktop"; }; \
+    mk Terminal lxterminal utilities-terminal vm-terminal; \
+    mk Fichiers pcmanfm system-file-manager vm-fichiers; \
+    mk Editeur mousepad accessories-text-editor vm-editeur; \
+    mk Navigateur "$BR" web-browser vm-navigateur; \
+    mkdir -p /root/Desktop; \
+    cp /usr/share/applications/vm-*.desktop /root/Desktop/; \
+    chmod +x /root/Desktop/*.desktop /root/.xinitrc
+
 # https://wiki.alpinelinux.org/wiki/Alpine_Linux_in_a_chroot#Preparing_init_services
-RUN for i in devfs dmesg mdev hwdrivers; do rc-update add $i sysinit; done
+RUN for i in devfs dmesg hwdrivers udev udev-trigger; do rc-update add $i sysinit; done
+RUN rc-update add udev-postmount default && rc-update add dbus default
 RUN for i in hwclock modules sysctl hostname syslog bootmisc; do rc-update add $i boot; done
 RUN rc-update add killprocs shutdown
 

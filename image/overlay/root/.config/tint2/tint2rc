@@ -1,0 +1,56 @@
+# Barre des tâches
+rounded = 0
+border_width = 0
+background_color = #1b2a3c 100
+border_color = #000000 0
+
+rounded = 4
+border_width = 0
+background_color = #33475f 100
+border_color = #000000 0
+
+rounded = 4
+border_width = 0
+background_color = #4a6b91 100
+border_color = #000000 0
+
+panel_items = LTSC
+panel_size = 100% 34
+panel_position = bottom center horizontal
+panel_margin = 0 0
+panel_padding = 4 3 4
+panel_background_id = 1
+wm_menu = 1
+panel_dock = 0
+panel_layer = top
+strut_policy = follow_size
+autohide = 0
+
+taskbar_mode = single_desktop
+taskbar_padding = 2 2 4
+taskbar_background_id = 0
+task_text = 1
+task_icon = 1
+task_maximum_size = 180 28
+task_padding = 6 3 4
+task_background_id = 2
+task_active_background_id = 3
+task_font_color = #dddddd 100
+task_active_font_color = #ffffff 100
+
+systray_padding = 4 2 4
+systray_background_id = 0
+
+time1_format = %H:%M
+time1_font = DejaVu Sans Bold 10
+clock_font_color = #ffffff 100
+clock_padding = 8 0
+clock_background_id = 0
+
+launcher_padding = 4 2 6
+launcher_background_id = 0
+launcher_icon_size = 24
+launcher_item_app = /usr/share/applications/vm-terminal.desktop
+launcher_item_app = /usr/share/applications/vm-fichiers.desktop
+launcher_item_app = /usr/share/applications/vm-editeur.desktop
+launcher_item_app = /usr/share/applications/vm-navigateur.desktop

@@ -163,6 +163,8 @@
     $("btn-fresh").disabled = true;
     $("boot-status").textContent = "Démarrage…";
 
+    const params = new URLSearchParams(location.search);
+    const wantDesktop = params.get("desktop") ? params.get("desktop") === "1" : cfg.desktop;
     const options = {
       wasm_path: "build/v86.wasm",
       memory_size: cfg.memoryMB * 1024 * 1024,
@@ -171,7 +173,7 @@
       bios: { url: "bios/seabios.bin" },
       vga_bios: { url: "bios/vgabios.bin" },
       bzimage_initrd_from_filesystem: true,
-      cmdline: cfg.cmdline,
+      cmdline: cfg.cmdline + (wantDesktop ? " desktop=1" : ""),
       filesystem: { baseurl: cfg.fsBase, basefs: cfg.fsJson },
       autostart: !restore
     };

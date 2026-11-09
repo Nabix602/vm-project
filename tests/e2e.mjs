@@ -223,6 +223,102 @@ if (prompted) {
     return o.split("\n").slice(1, 3).join(" | ");
   }, { critical: false });
 
+  // =========================== 3b. Bureau graphique ===========================
+  const X = "DISPLAY=:0 ";
+  const asciiScreen = () => page.evaluate(() => {
+    const c = document.querySelector("#screen_container canvas");
+    if (!c || !c.width) return "(pas de canvas)";
+    const W = 96, H = 30, ramp = " .:-=+*#%@";
+    const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+    const colors = new Set();
+    let out = "";
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const px = Math.floor((x + 0.5) * c.width / W), py = Math.floor((y + 0.5) * c.height / H);
+        const i = (py * c.width + px) * 4;
+        const l = (d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11) / 255;
+        out += ramp[Math.min(9, Math.floor(l * 10))];
+        colors.add((d[i] >> 4) + "," + (d[i + 1] >> 4) + "," + (d[i + 2] >> 4));
+      }
+      out += "\n";
+    }
+    return `${c.width}x${c.height}, ${colors.size} couleurs\n` + out;
+  });
+
+  const xUp = await check("Bureau : le serveur graphique (X11) démarre", async () => {
+    const end = Date.now() + 420000;
+    let last = "";
+    while (Date.now() < end) {
+      last = await sh(X + "xdotool getdisplaygeometry 2>&1", 30000).catch((e) => e.message);
+      const m = last.match(/^(\d+) (\d+)\s*$/m);
+      if (m) return `${m[1]}x${m[2]}`;
+      await page.waitForTimeout(5000);
+    }
+    const diag = await sh("echo '--- startx.log'; tail -20 /tmp/startx.log; echo '--- Xorg'; grep -E '\\((EE|WW)\\)' /var/log/Xorg.0.log | tail -15; echo '--- fb'; ls -la /dev/fb* /dev/dri 2>&1; echo '--- ps'; ps | grep -E 'Xorg|startx|openbox|tint2' | head", 30000).catch(() => "");
+    throw new Error("pas d'écran X : " + last.slice(-200) + " " + diag);
+  });
+  if (xUp) {
+    await check("Bureau : barre, bureau et fenêtres (openbox, tint2, pcmanfm)", async () => {
+      const end = Date.now() + 180000;
+      let o = "";
+      while (Date.now() < end) {
+        o = await sh("for p in openbox tint2 pcmanfm; do pgrep -x $p >/dev/null && echo up-$p || echo down-$p; done", 30000);
+        if (/up-openbox/.test(o) && /up-tint2/.test(o) && /up-pcmanfm/.test(o)) return "openbox, tint2, pcmanfm actifs";
+        await page.waitForTimeout(4000);
+      }
+      throw new Error(o.replace(/\s+/g, " "));
+    });
+    await page.waitForTimeout(5000);
+    const ascii = await asciiScreen();
+    console.log("  aperçu du bureau (luminosité) :\n" + ascii);
+    await check("Bureau : l'écran affiche autre chose qu'un fond uni", async () => {
+      const m = ascii.match(/(\d+) couleurs/);
+      expect(m && Number(m[1]) >= 8, "pas assez de couleurs : " + ascii.split("\n")[0]);
+      return ascii.split("\n")[0];
+    });
+    await check("Bureau : la souris déplace le pointeur", async () => {
+      const loc = async () => {
+        const o = await sh(X + "xdotool getmouselocation", 20000);
+        const m = o.match(/x:(\d+) y:(\d+)/);
+        expect(m, "position illisible : " + o.slice(-120));
+        return [Number(m[1]), Number(m[2])];
+      };
+      const a = await loc();
+      const box = await page.locator("#screen_container canvas").boundingBox();
+      await page.mouse.move(box.x + 100, box.y + 100);
+      await page.mouse.move(box.x + 500, box.y + 350, { steps: 25 });
+      await page.waitForTimeout(1500);
+      const b = await loc();
+      expect(a[0] !== b[0] || a[1] !== b[1], `le pointeur n'a pas bougé : ${a} -> ${b}`);
+      return `${a} -> ${b}`;
+    }, { critical: false });
+
+    // Applications : on les lance et on vérifie qu'une fenêtre apparaît (le terminal reste ouvert pour la suite)
+    for (const [label, cmd, search, keep] of [
+      ["Gestionnaire de fichiers", "pcmanfm /root", "--name '^root$'", false],
+      ["Éditeur de texte", "mousepad", "--class '[Mm]ousepad'", false],
+      ["Navigateur", "$(command -v netsurf-gtk3 || command -v netsurf-gtk || command -v netsurf) http://example.com", "--class '[Nn]et[Ss]urf'", false],
+      ["Terminal", "lxterminal", "--class '[Ll]xterminal'", true]
+    ]) {
+      await check(`Bureau : ${label} s'ouvre`, async () => {
+        await sh(`(${X}${cmd} >/tmp/app.log 2>&1 &); sleep 1`, 30000);
+        const end = Date.now() + 150000;
+        while (Date.now() < end) {
+          const o = await sh(`${X}xdotool search --onlyvisible ${search} 2>&1 | head -1`, 30000);
+          const m = o.match(/^(\d+)\s*$/m);
+          if (m) {
+            if (!keep) await sh(`${X}xdotool windowclose ${m[1]}; true`, 15000).catch(() => {});
+            return "fenêtre " + m[1];
+          }
+          await page.waitForTimeout(3000);
+        }
+        throw new Error("pas de fenêtre ; journal : " + (await sh("tail -5 /tmp/app.log", 15000).catch(() => "")).slice(-200));
+      }, { critical: label === "Terminal" });
+    }
+    console.log("  aperçu après ouverture du terminal :\n" + (await asciiScreen()));
+    await sh(`${X}xdotool search --onlyvisible --class '[Ll]xterminal' | head -1 | xargs -r -I{} ${X}xdotool windowfocus {}`, 30000).catch(() => {});
+  }
+
   // =========================== 4. Clavier français (touches physiques) ===========================
   // On tape sur la console de l'écran (tty1) avec les touches physiques d'un clavier AZERTY,
   // en redirigeant le résultat dans des fichiers qu'on relit ensuite par la console série.
