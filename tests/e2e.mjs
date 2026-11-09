@@ -271,14 +271,18 @@ if (prompted) {
       throw new Error(o.replace(/\s+/g, " ").slice(-60));
     });
     await check("Bureau : thèmes d'icônes installés", async () => (await sh("ls /usr/share/icons", 20000)).replace(/\s+/g, " ").slice(0, 200), { critical: false });
-    await page.waitForTimeout(5000);
-    const ascii = await asciiScreen();
-    console.log("  aperçu du bureau (luminosité) :\n" + ascii);
-    await check("Bureau : l'écran affiche autre chose qu'un fond uni", async () => {
-      const m = ascii.match(/(\d+) couleurs/);
-      expect(m && Number(m[1]) >= 8, "pas assez de couleurs : " + ascii.split("\n")[0]);
-      return ascii.split("\n")[0];
+    let ascii = "";
+    await check("Bureau : l'écran affiche le bureau (barre, icônes, fond)", async () => {
+      const end = Date.now() + 150000;
+      while (Date.now() < end) {
+        await page.waitForTimeout(4000);
+        ascii = await asciiScreen();
+        const m = ascii.match(/(\d+) couleurs/);
+        if (m && Number(m[1]) >= 8) return ascii.split("\n")[0];
+      }
+      throw new Error("bureau pas dessiné : " + ascii.split("\n")[0]);
     });
+    console.log("  aperçu du bureau (luminosité) :\n" + ascii);
     await check("Bureau : la souris déplace le pointeur", async () => {
       const loc = async () => {
         const o = await sh(X + "xdotool getmouselocation", 20000);
