@@ -267,7 +267,8 @@ if (prompted) {
         await page.waitForTimeout(4000);
       }
       const diag = await sh("echo '--- startx.log'; tail -30 /tmp/startx.log; echo '--- ps'; ps | grep -E 'openbox|tint2|pcmanfm|dbus' | grep -v grep; echo '--- bin'; ls /usr/bin | grep -i openbox; echo '--- essai'; DISPLAY=:0 timeout 8 openbox 2>&1 | head -20", 40000).catch((e) => e.message);
-      throw new Error(o.replace(/\s+/g, " ").slice(0, 120) + " " + diag);
+      console.log("  diagnostic openbox :\n" + diag);
+      throw new Error(o.replace(/\s+/g, " ").slice(-60));
     });
     await page.waitForTimeout(5000);
     const ascii = await asciiScreen();
