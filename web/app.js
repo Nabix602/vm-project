@@ -218,6 +218,8 @@
       }
       show("machine");
       window.VMKeyboard.attach(emulator);
+      fitScreen();
+      emulator.add_listener("screen-set-size", () => setTimeout(fitScreen, 50));
       setLabel(resumed ? "Session reprise." : "Linux démarre…");
       $("btn-resume").disabled = false;
       $("btn-fresh").disabled = false;
@@ -269,6 +271,24 @@
     try { sessionStorage.setItem(SKIP_KEY, "1"); } catch {}
     location.reload();
   }
+
+  // Adapte la taille de l'écran de la machine à la fenêtre (la souris suit : v86 gère l'échelle)
+  function fitScreen() {
+    if (!emulator) return;
+    const box = $("screen_container");
+    const c = box.querySelector("canvas");
+    const d = box.querySelector("div");
+    const native = c && c.width && c.style.display !== "none" ? [c.width, c.height] : [720, 400];
+    const fs = !!document.fullscreenElement;
+    const bar = document.querySelector(".bar");
+    const availW = fs ? window.innerWidth : window.innerWidth - 24;
+    const availH = fs ? window.innerHeight : window.innerHeight - (bar ? bar.offsetHeight : 0) - 70;
+    let s = Math.min(availW / native[0], availH / native[1]);
+    s = Math.max(0.4, Math.min(2.5, s));
+    try { emulator.screen_set_scale(s, s); } catch {}
+  }
+  window.addEventListener("resize", fitScreen);
+  document.addEventListener("fullscreenchange", fitScreen);
 
   function onFullscreen() {
     const el = $("screen_container");

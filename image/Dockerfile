@@ -16,7 +16,8 @@ RUN apk add --no-cache \
     adwaita-icon-theme font-dejavu
 
 # Icônes en couleur pour les applications (si le paquet existe pour ce processeur)
-RUN apk add --no-cache gnome-icon-theme || echo "gnome-icon-theme indisponible"
+RUN apk search -q '*icon-theme*' | sort | tr '\n' ' '; echo
+RUN apk add --no-cache librsvg papirus-icon-theme || echo "papirus-icon-theme indisponible"
 
 # Navigateur : un petit navigateur graphique (dillo) si le dépôt 32 bits l'a, et un navigateur texte en secours
 RUN apk add --no-cache dillo || echo "dillo indisponible"

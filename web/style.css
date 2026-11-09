@@ -88,4 +88,4 @@ button.danger { background: var(--danger); }
   background: #000;
   border: 1px solid var(--border);
 }
-#screen_container canvas { max-width: 100%; height: auto; }
+#screen_container:fullscreen { display: grid; place-items: center; width: 100vw; height: 100vh; margin: 0; border: 0; }

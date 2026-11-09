@@ -300,6 +300,29 @@ if (prompted) {
       return `${a} -> ${b}`;
     }, { critical: false });
 
+    // L'écran s'adapte à la fenêtre et la souris reste exacte, même mis à l'échelle
+    for (const [w, h] of [[1100, 760], [1500, 900]]) {
+      await check(`Bureau : écran adapté à une fenêtre de ${w}x${h}, souris exacte`, async () => {
+        await page.setViewportSize({ width: w, height: h });
+        await page.waitForTimeout(1500);
+        const box = await page.locator("#screen_container canvas").boundingBox();
+        const nativeW = await page.evaluate(() => document.querySelector("#screen_container canvas").width);
+        const scale = box.width / nativeW;
+        expect(box.x >= 0 && box.x + box.width <= w + 1, `écran qui déborde : x=${box.x} largeur=${box.width} fenêtre=${w}`);
+        const gx = 300, gy = 200;
+        await page.mouse.move(box.x + 5, box.y + 5);
+        await page.mouse.move(box.x + gx * scale, box.y + gy * scale, { steps: 15 });
+        await page.waitForTimeout(1500);
+        const o = await sh(X + "xdotool getmouselocation", 20000);
+        const m = o.match(/x:(\d+) y:(\d+)/);
+        expect(m, "position illisible : " + o.slice(-100));
+        const dx = Math.abs(Number(m[1]) - gx), dy = Math.abs(Number(m[2]) - gy);
+        expect(dx <= 8 && dy <= 8, `pointeur en ${m[1]},${m[2]} au lieu de ${gx},${gy} (échelle ${scale.toFixed(2)})`);
+        return `échelle ${scale.toFixed(2)}, pointeur ${m[1]},${m[2]}`;
+      });
+    }
+    await page.setViewportSize({ width: 1280, height: 900 });
+
     // Applications : on les lance et on vérifie qu'une fenêtre apparaît (le terminal reste ouvert pour la suite)
     for (const [label, cmd, search, keep] of [
       ["Gestionnaire de fichiers", "pcmanfm /root", "--name '^root$'", false],
