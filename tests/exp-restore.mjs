@@ -5,10 +5,10 @@ import fs from "node:fs";
 const BASE = process.env.BASE_URL || "http://localhost:8080/";
 const TRIALS = Number(process.env.TRIALS || 4);
 const CONFIGS = [
-  { name: "actuel (réseau, MAC aléatoire)", q: "" },
-  { name: "réseau + même MAC", q: "?mac=1" },
-  { name: "sans réseau", q: "?net=0" },
-  { name: "réseau coupé (rmmod) avant sauvegarde", q: "", pre: "rmmod virtio_net" }
+  { name: "charge lourde + réseau", q: "" },
+  { name: "charge lourde + réseau + attente 30 s avant sauvegarde", q: "", wait: 30000 },
+  { name: "charge lourde, sans réseau", q: "?net=0" },
+  { name: "charge lourde + réseau + même MAC", q: "?mac=1" }
 ];
 
 const t0 = Date.now();
@@ -62,12 +62,21 @@ for (const cfg of CONFIGS) {
       await page.waitForTimeout(2000);
     }
     log("  prêt");
+    // Même charge que le test complet : outils, clavier, réseau
+    await sh("python3 -c 'print(6*7)'", 60000).catch(() => {});
+    await sh("node -e 'console.log(6*7)'", 60000).catch(() => {});
+    await sh(`printf '#include <stdio.h>\\nint main(){puts("c-" "4" "2");return 0;}\\n' > /tmp/h.c && gcc /tmp/h.c -o /tmp/h && /tmp/h`, 120000).catch(() => {});
+    await sh("cd /tmp && rm -rf r && git init -q r && cd r && git config user.email a@b.c && git config user.name t && echo x > f && git add f && git commit -qm premier", 60000).catch(() => {});
+    await page.waitForTimeout(1500);
+    for (const k of ["KeyE", "KeyC", "KeyH", "KeyO", "Space", "KeyQ", "KeyW", "KeyE", "KeyR", "KeyT", "KeyY", "Enter"]) { await page.keyboard.press(k); await page.waitForTimeout(60); }
     if (!cfg.q.includes("net=0")) {
-      await sh("ls /sys/class/net; ip -4 addr show eth0 | grep inet", 20000).catch(() => {});
+      await sh("ip -4 addr show eth0 | grep inet", 20000).catch(() => {});
       await sh("ping -c 2 -W 4 1.1.1.1 | tail -2", 30000).catch(() => {});
       await sh("wget -q -T 15 -O - http://example.com | head -c 80", 30000).catch(() => {});
+      await sh("curl -sS -m 40 -o /dev/null -w 'code=%{http_code}' https://github.com 2>&1", 60000).catch(() => {});
+      await sh("git ls-remote https://github.com/Nabix602/vm-project HEAD 2>&1 | head -3", 90000).catch(() => {});
     }
-    if (cfg.pre) await sh(cfg.pre, 20000).catch((e) => log("  pre :", e.message));
+    if (cfg.wait) await page.waitForTimeout(cfg.wait);
     await sh("echo persiste-$((40+2)) > /root/persist.txt; sync");
     await page.click("#btn-save");
     await page.waitForFunction(() => /Sauvegardé|Échec/.test(document.getElementById("state-label").textContent), null, { timeout: 120000 });
