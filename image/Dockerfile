@@ -13,7 +13,11 @@ RUN apk add --no-cache \
     xorg-server xinit xauth xkeyboard-config xf86-video-fbdev xf86-input-libinput \
     eudev udev-init-scripts udev-init-scripts-openrc dbus dbus-x11 \
     openbox tint2 pcmanfm lxterminal mousepad xdotool \
-    adwaita-icon-theme font-dejavu netsurf
+    adwaita-icon-theme font-dejavu
+
+# Navigateur : un petit navigateur graphique (dillo) si le dépôt 32 bits l'a, et un navigateur texte en secours
+RUN apk add --no-cache dillo || echo "dillo indisponible"
+RUN apk add --no-cache links || echo "links indisponible"
 
 # Connexion automatique (console écran + console série), sans mot de passe
 RUN sed -i 's/getty 38400 tty1/agetty --autologin root tty1 linux/' /etc/inittab
@@ -42,7 +46,7 @@ RUN printf 'VM Project - Alpine Linux dans ton navigateur\n\n' > /etc/motd
 # Réglages du bureau (voir image/overlay/)
 COPY overlay/ /
 RUN set -e; \
-    BR=$(command -v netsurf-gtk3 || command -v netsurf-gtk || command -v netsurf || echo netsurf-gtk3); \
+    if command -v dillo >/dev/null; then BR="dillo"; elif command -v links >/dev/null; then BR="lxterminal -e links"; else BR="lxterminal"; fi; \
     mk() { printf '[Desktop Entry]\nType=Application\nName=%s\nExec=%s\nIcon=%s\nTerminal=false\nCategories=Utility;\n' "$1" "$2" "$3" > "/usr/share/applications/$4.desktop"; }; \
     mk Terminal lxterminal utilities-terminal vm-terminal; \
     mk Fichiers pcmanfm system-file-manager vm-fichiers; \

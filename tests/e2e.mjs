@@ -297,7 +297,7 @@ if (prompted) {
     for (const [label, cmd, search, keep] of [
       ["Gestionnaire de fichiers", "pcmanfm /root", "--name '^root$'", false],
       ["Éditeur de texte", "mousepad", "--class '[Mm]ousepad'", false],
-      ["Navigateur", "$(command -v netsurf-gtk3 || command -v netsurf-gtk || command -v netsurf) http://example.com", "--class '[Nn]et[Ss]urf'", false],
+      ["Navigateur", "$(command -v dillo || echo 'lxterminal -e links') http://example.com", "--class '[Dd]illo|[Ll]xterminal'", false],
       ["Terminal", "lxterminal", "--class '[Ll]xterminal'", true]
     ]) {
       await check(`Bureau : ${label} s'ouvre`, async () => {
