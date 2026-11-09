@@ -82,8 +82,22 @@
   }
 
   // ---------- Verrouillage ----------
+  // Après "Éteindre", la page se recharge (machine toute neuve) sans redemander le code, une seule fois.
+  const SKIP_KEY = "vm-project:skip-lock-once";
+  function consumeSkipLock() {
+    try {
+      const v = sessionStorage.getItem(SKIP_KEY) === "1";
+      sessionStorage.removeItem(SKIP_KEY);
+      return v;
+    } catch { return false; }
+  }
+
   async function initLock() {
     const stored = readHash();
+    if (stored && consumeSkipLock()) {
+      await initBoot();
+      return;
+    }
     if (stored) {
       $("lock-text").textContent = "Entre ton code d'accès.";
       $("lock-button").textContent = "Entrer";
@@ -249,8 +263,9 @@
     window.VMKeyboard.detach();
     try { await emulator.destroy(); } catch {}
     emulator = null;
-    $("screen_container").querySelector("div").textContent = "";
-    await initBoot();
+    // On repart d'une page propre : recréer une machine dans la même page rendait la reprise instable
+    try { sessionStorage.setItem(SKIP_KEY, "1"); } catch {}
+    location.reload();
   }
 
   function onFullscreen() {

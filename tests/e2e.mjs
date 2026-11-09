@@ -298,7 +298,7 @@ if (prompted) {
     return label;
   });
   await check("Sauvegarde : éteindre ramène à l'écran de démarrage", async () => {
-    await page.click("#btn-stop");
+    await Promise.all([page.waitForNavigation({ waitUntil: "load" }), page.click("#btn-stop")]);
     await page.waitForSelector("#boot:not([hidden])");
     await page.waitForSelector("#btn-resume:not([hidden])");
   });
