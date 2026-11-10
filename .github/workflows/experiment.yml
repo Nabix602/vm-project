@@ -3,6 +3,10 @@ name: Expérience fluidité (temporaire)
 on:
   workflow_dispatch:
     inputs:
+      script:
+        description: "Script de tests/ à lancer"
+        required: false
+        default: "exp-perf.mjs"
       variants:
         description: "Variantes en JSON (vide = liste par défaut)"
         required: false
@@ -33,4 +37,4 @@ jobs:
         run: |
           python3 -m http.server 8080 --directory dist >/dev/null 2>&1 &
           sleep 2
-          node tests/exp-perf.mjs
+          node tests/${{ github.event.inputs.script || 'exp-perf.mjs' }}
