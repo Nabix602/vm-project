@@ -365,9 +365,10 @@ if (prompted) {
       ["Gestionnaire de fichiers", "xterm -e mc", "--class '[Xx]term'", false],
       ["Éditeur de texte", "xterm -e nano", "--class '[Xx]term'", false],
       ["Navigateur", "$(command -v dillo || echo 'xterm -e links') file:///root/accueil.html", "--class '[Dd]illo|[Xx]term'", false],
-      ["Terminal", "xterm", "--class '[Xx]term'", true]
+      ["Terminal", "xterm -T vmterm", "--name '^vmterm$'", true]
     ]) {
       await check(`Bureau : ${label} s'ouvre`, async () => {
+        if (keep) await sh("pkill -x mc; pkill -x nano; pkill -x dillo; sleep 1; true", 30000).catch(() => {});
         await sh(`cd /root; (${X}${cmd} >/tmp/app.log 2>&1 &); sleep 1`, 30000);
         const end = Date.now() + 150000;
         while (Date.now() < end) {
@@ -411,12 +412,12 @@ if (prompted) {
       });
       const f0 = await page.evaluate(() => [window.__frames, window.__area]);
       const t = Date.now();
-      await sh(`${X}W=$(DISPLAY=:0 xdotool search --onlyvisible --class '[Xx]term' | head -1); i=0; while [ $i -lt 60 ]; do DISPLAY=:0 xdotool windowmove $W $((i*6)) $((i*3)); i=$((i+1)); done`, 180000);
+      await sh(`${X}W=$(DISPLAY=:0 xdotool search --onlyvisible --name '^vmterm$' | head -1); i=0; while [ $i -lt 60 ]; do DISPLAY=:0 xdotool windowmove $W $((i*6)) $((i*3)); i=$((i+1)); done`, 180000);
       const dt = (Date.now() - t) / 1000;
       const f1 = await page.evaluate(() => [window.__frames, window.__area]);
       return `${dt.toFixed(1)} s ; ${f1[0] - f0[0]} mises à jour d'écran (${((f1[0] - f0[0]) / dt).toFixed(1)}/s), ${((f1[1] - f0[1]) / 1e6).toFixed(1)} Mpixels`;
     }, { critical: false });
-    await sh(`${X}xdotool search --onlyvisible --class '[Xx]term' | head -1 | xargs -r -I{} ${X}xdotool windowfocus {}`, 30000).catch(() => {});
+    await sh(`${X}xdotool search --onlyvisible --name '^vmterm$' | head -1 | xargs -r -I{} ${X}xdotool windowfocus {}`, 30000).catch(() => {});
   }
 
   // =========================== 4. Clavier français (touches physiques) ===========================
