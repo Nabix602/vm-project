@@ -42,3 +42,10 @@ Chaque push sur `main` lance `.github/workflows/deploy.yml` :
 - Le code d'accès est vérifié dans le navigateur : il protège l'entrée de la machine, pas contre quelqu'un qui maîtrise ton navigateur.
 - Le relais réseau est public et géré par un tiers : il peut être lent ou tomber en panne, et il voit les sites contactés (pas le contenu HTTPS).
 - La sauvegarde reste locale à chaque appareil et à chaque navigateur.
+
+## Bureau graphique, plein écran et performances
+
+- Sur l'écran de démarrage, tu choisis **Bureau graphique** ou **Console** (plus rapide) et la **qualité** de l'écran (800 / 1024 / 1280 px). La hauteur suit le format de ton écran, donc le plein écran le remplit.
+- Applications du bureau (légères, pour l'émulation) : xterm (terminal), mc (fichiers), nano (éditeur), dillo (navigateur).
+- La machine est émulée : environ 70 fois plus lente qu'un vrai PC. Le premier lancement d'une application est le plus long (fichiers chargés à la demande), les suivants sont rapides.
+- Système : Alpine Linux 32 bits. v86 n'émule que du x86 32 bits : pas de Windows 11, pas d'Ubuntu récent, pas de Debian 13.
