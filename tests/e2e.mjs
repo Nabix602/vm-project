@@ -270,6 +270,7 @@ if (prompted) {
       console.log("  diagnostic openbox :\n" + diag);
       throw new Error(o.replace(/\s+/g, " ").slice(-60));
     });
+    await check("Bureau : le navigateur gère HTTPS", async () => (await sh("ldd /usr/bin/dillo | grep -ci ssl; ls /usr/lib/dillo/dpi 2>&1 | tr '\\n' ' '", 20000)).replace(/\s+/g, " ").slice(0, 200), { critical: false });
     await check("Bureau : thèmes d'icônes installés", async () => (await sh("ls /usr/share/icons", 20000)).replace(/\s+/g, " ").slice(0, 200), { critical: false });
     let ascii = "";
     await check("Bureau : l'écran affiche le bureau (barre, icônes, fond)", async () => {
@@ -363,7 +364,7 @@ if (prompted) {
     for (const [label, cmd, search, keep] of [
       ["Gestionnaire de fichiers", "xterm -e mc", "--class '[Xx]term'", false],
       ["Éditeur de texte", "xterm -e nano", "--class '[Xx]term'", false],
-      ["Navigateur", "$(command -v dillo || echo 'xterm -e links') http://example.com", "--class '[Dd]illo|[Xx]term'", false],
+      ["Navigateur", "$(command -v dillo || echo 'xterm -e links') file:///root/accueil.html", "--class '[Dd]illo|[Xx]term'", false],
       ["Terminal", "xterm", "--class '[Xx]term'", true]
     ]) {
       await check(`Bureau : ${label} s'ouvre`, async () => {

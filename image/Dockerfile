@@ -50,7 +50,7 @@ RUN printf 'VM Project - Alpine Linux dans ton navigateur\n\n' > /etc/motd
 # Réglages du bureau (voir image/overlay/)
 COPY overlay/ /
 RUN set -e; \
-    if command -v dillo >/dev/null; then BR="dillo"; elif command -v links >/dev/null; then BR="xterm -e links"; else BR="xterm"; fi; \
+    if command -v dillo >/dev/null; then BR="dillo file:///root/accueil.html"; elif command -v links >/dev/null; then BR="xterm -e links"; else BR="xterm"; fi; \
     mk() { printf '[Desktop Entry]\nType=Application\nName=%s\nExec=%s\nIcon=%s\nTerminal=false\nCategories=Utility;\n' "$1" "$2" "$3" > "/usr/share/applications/$4.desktop"; }; \
     mk Terminal xterm utilities-terminal vm-terminal; \
     mk Fichiers 'xterm -e mc' system-file-manager vm-fichiers; \
