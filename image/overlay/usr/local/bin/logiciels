@@ -1,0 +1,16 @@
+#!/bin/sh
+# Installateur de logiciels (Alpine : apk). Usage : logiciels [nom ...]
+if [ $# -gt 0 ]; then apk update -q; apk add "$@"; echo; echo "Terminé. Appuie sur Entrée."; read x; exit; fi
+echo "=== Installer des logiciels ==="
+echo "Tape le nom d'un logiciel pour le chercher, ou « i nom » pour l'installer."
+echo "Exemples : htop, vim, python3, nodejs, git, firefox-esr, falkon, geany, gimp"
+echo "(q pour quitter)"
+apk update -q
+while printf 'logiciels> '; read c a; do
+  case "$c" in
+    q|quit|exit) exit;;
+    i|install) apk add $a;;
+    "") ;;
+    *) apk search -v "$c $a" | head -30;;
+  esac
+done

@@ -51,3 +51,4 @@ launcher_item_app = /usr/share/applications/vm-fichiers.desktop
 launcher_item_app = /usr/share/applications/vm-editeur.desktop
 launcher_item_app = /usr/share/applications/vm-navigateur.desktop
 tooltip_show_timeout = 0
+launcher_item_app = /usr/share/applications/vm-logiciels.desktop

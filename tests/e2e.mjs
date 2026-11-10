@@ -469,6 +469,10 @@ if (prompted) {
       const o = await sh("git ls-remote https://github.com/Nabix602/vm-project HEAD 2>&1 | head -3", 90000);
       expect(/[0-9a-f]{40}\s+HEAD/.test(o), o.slice(-200));
     }, { critical: false });
+    await check("Réseau : installer un logiciel (apk add htop) et le lancer", async () => {
+      const o = await sh("logiciels htop >/tmp/apk.log 2>&1 </dev/null; htop --version 2>&1 | head -1; tail -3 /tmp/apk.log", 400000);
+      expect(/htop [0-9]/.test(o), o.slice(-250));
+    }, { critical: false });
   }
 
   // =========================== 6. Sauvegarde et reprise ===========================

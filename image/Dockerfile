@@ -56,9 +56,10 @@ RUN set -e; \
     mk Fichiers 'xterm -e mc' system-file-manager vm-fichiers; \
     mk Editeur 'xterm -e nano' accessories-text-editor vm-editeur; \
     mk Navigateur "$BR" web-browser vm-navigateur; \
+    mk Logiciels 'xterm -e logiciels' system-software-install vm-logiciels; \
     mkdir -p /root/Desktop; \
     cp /usr/share/applications/vm-*.desktop /root/Desktop/; \
-    chmod +x /root/Desktop/*.desktop /root/.xinitrc
+    chmod +x /usr/local/bin/logiciels /root/Desktop/*.desktop /root/.xinitrc
 
 # https://wiki.alpinelinux.org/wiki/Alpine_Linux_in_a_chroot#Preparing_init_services
 RUN for i in devfs dmesg hwdrivers udev udev-trigger; do rc-update add $i sysinit; done

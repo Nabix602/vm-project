@@ -4,6 +4,7 @@
     <item label="Terminal"><action name="Execute"><command>xterm</command></action></item>
     <item label="Fichiers"><action name="Execute"><command>xterm -e mc</command></action></item>
     <item label="Éditeur de texte"><action name="Execute"><command>xterm -e nano</command></action></item>
+    <item label="Installer des logiciels"><action name="Execute"><command>xterm -e logiciels</command></action></item>
     <separator/>
     <item label="Quitter le bureau"><action name="Exit"/></item>
   </menu>
