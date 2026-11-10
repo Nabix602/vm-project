@@ -476,6 +476,15 @@ if (prompted) {
     }, { critical: false });
   }
 
+  await check("Cache : les fichiers de la machine sont gardés pour les prochains démarrages", async () => {
+    const r = await page.evaluate(async () => {
+      const ks = await caches.keys(); let n = 0;
+      for (const k of ks) n += (await (await caches.open(k)).keys()).length;
+      return { n, ctl: !!navigator.serviceWorker.controller };
+    });
+    return JSON.stringify(r);
+  }, { critical: false });
+
   // =========================== 6. Sauvegarde et reprise ===========================
   await check("Sauvegarde : écrire un fichier puis sauvegarder", async () => {
     await sh("echo persiste-$((40+2)) > /root/persist.txt; sync");

@@ -334,5 +334,6 @@
   $("btn-stop").addEventListener("click", onStop);
   $("btn-fullscreen").addEventListener("click", onFullscreen);
 
+  try { if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {}); } catch {}
   initLock();
 })();
