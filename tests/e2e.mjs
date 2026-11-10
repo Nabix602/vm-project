@@ -485,6 +485,26 @@ if (prompted) {
     return JSON.stringify(r);
   }, { critical: false });
 
+  // =========================== Bureau Web 11 ===========================
+  await check("Bureau Web 11 : ouverture, terminal, fichiers et calculatrice", async () => {
+    const w = await ctx.newPage();
+    const errs = [];
+    w.on("pageerror", (e) => errs.push(e.message));
+    await w.goto(new URL("win.html", BASE).href);
+    await w.evaluate(() => { __win.open("terminal"); });
+    const inp = w.locator(".term input");
+    for (const c of ["mkdir /Documents/test", "echo salut > /Documents/test/a.txt", "cat /Documents/test/a.txt"]) { await inp.fill(c); await inp.press("Enter"); }
+    const txt = await w.locator(".term").innerText();
+    await w.evaluate(() => { __win.open("calculatrice"); });
+    for (const k of ["6", "×", "7", "="]) await w.locator(".calc button", { hasText: new RegExp("^" + (k === "×" ? "×" : k) + "$") }).first().click();
+    const scr = await w.locator(".calc .scr").innerText();
+    await w.close();
+    if (errs.length) throw new Error("erreur JS : " + errs[0]);
+    expect(/salut/.test(txt.split("cat /Documents/test/a.txt")[1] || ""), txt.slice(-120));
+    expect(scr.trim() === "42", "calcul : " + scr);
+    return "terminal et calculatrice OK";
+  }, { critical: false });
+
   // =========================== 6. Sauvegarde et reprise ===========================
   await check("Sauvegarde : écrire un fichier puis sauvegarder", async () => {
     await sh("echo persiste-$((40+2)) > /root/persist.txt; sync");
