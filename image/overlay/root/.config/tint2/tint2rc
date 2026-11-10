@@ -14,7 +14,7 @@ border_width = 0
 background_color = #4a6b91 100
 border_color = #000000 0
 
-panel_items = LTSC
+panel_items = LT
 panel_size = 100% 34
 panel_position = bottom center horizontal
 panel_margin = 0 0
@@ -41,11 +41,6 @@ task_active_font_color = #ffffff 100
 systray_padding = 4 2 4
 systray_background_id = 0
 
-time1_format = %H:%M
-time1_font = DejaVu Sans Bold 10
-clock_font_color = #ffffff 100
-clock_padding = 8 0
-clock_background_id = 0
 
 launcher_padding = 4 2 6
 launcher_background_id = 0
@@ -55,3 +50,4 @@ launcher_item_app = /usr/share/applications/vm-terminal.desktop
 launcher_item_app = /usr/share/applications/vm-fichiers.desktop
 launcher_item_app = /usr/share/applications/vm-editeur.desktop
 launcher_item_app = /usr/share/applications/vm-navigateur.desktop
+tooltip_show_timeout = 0

@@ -76,6 +76,22 @@
     return new Response(new Blob([rec.data]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
   }
 
+  // ---------- Préférences (affichage, qualité) ----------
+  const PREF_KEY = "vm-project:prefs";
+  function loadPrefs() {
+    try { return JSON.parse(localStorage.getItem(PREF_KEY) || "{}"); } catch { return {}; }
+  }
+  function savePrefs(p) {
+    try { localStorage.setItem(PREF_KEY, JSON.stringify(p)); } catch {}
+  }
+  function currentPrefs() {
+    const p = loadPrefs();
+    return {
+      mode: p.mode || (cfg.desktop ? "desktop" : "console"),
+      width: Number(p.width) || cfg.screenWidth || 1024
+    };
+  }
+
   // ---------- Écrans ----------
   function show(id) {
     for (const s of ["lock", "boot", "machine"]) $(s).hidden = s !== id;
@@ -140,6 +156,9 @@
 
   async function initBoot() {
     show("boot");
+    const prefs = currentPrefs();
+    $("opt-mode").value = prefs.mode;
+    $("opt-quality").value = String(prefs.width);
     try { hasSaved = await dbHas(); } catch { hasSaved = false; }
     $("btn-resume").hidden = !hasSaved;
     $("boot-status").textContent = hasSaved
@@ -164,7 +183,13 @@
     $("boot-status").textContent = "Démarrage…";
 
     const params = new URLSearchParams(location.search);
-    const wantDesktop = params.get("desktop") ? params.get("desktop") === "1" : cfg.desktop;
+    const prefs = currentPrefs();
+    const wantDesktop = params.get("desktop") ? params.get("desktop") === "1" : prefs.mode === "desktop";
+    // La hauteur de l'écran de la machine suit le format de ton écran : en plein écran, il le remplit
+    const ratio = Math.min(2.4, Math.max(1.2, (screen.width || 16) / (screen.height || 9)));
+    const vw = Math.round(prefs.width / 8) * 8;
+    const vh = Math.round(prefs.width / ratio / 8) * 8;
+    const videoArg = params.get("rawcmd") ? "" : ` video=Virtual-1:${vw}x${vh}`;
     const options = {
       wasm_path: "build/v86.wasm",
       memory_size: cfg.memoryMB * 1024 * 1024,
@@ -173,7 +198,7 @@
       bios: { url: "bios/seabios.bin" },
       vga_bios: { url: "bios/vgabios.bin" },
       bzimage_initrd_from_filesystem: true,
-      cmdline: (params.get("rawcmd") || cfg.cmdline) + (wantDesktop ? " desktop=1" : "") + (params.get("cmd") ? " " + params.get("cmd") : ""),
+      cmdline: (params.get("rawcmd") || cfg.cmdline) + videoArg + (wantDesktop ? " desktop=1" : "") + (params.get("cmd") ? " " + params.get("cmd") : ""),
       filesystem: { baseurl: cfg.fsBase, basefs: cfg.fsJson },
       autostart: !restore
     };
@@ -283,12 +308,17 @@
     const bar = document.querySelector(".bar");
     const availW = fs ? window.innerWidth : window.innerWidth - 24;
     const availH = fs ? window.innerHeight : window.innerHeight - (bar ? bar.offsetHeight : 0) - 70;
-    let s = Math.min(availW / native[0], availH / native[1]);
-    s = Math.max(0.4, Math.min(2.5, s));
-    try { emulator.screen_set_scale(s, s); } catch {}
+    const sx = availW / native[0], sy = availH / native[1];
+    let ux = Math.min(sx, sy), uy = ux;
+    // En plein écran, si le format est presque le même, on remplit tout l'écran (étirement < 12 %)
+    if (fs && Math.abs(sx / sy - 1) < 0.12) { ux = sx; uy = sy; }
+    ux = Math.max(0.4, Math.min(3, ux));
+    uy = Math.max(0.4, Math.min(3, uy));
+    try { emulator.screen_set_scale(ux, uy); } catch {}
   }
+  function fitSoon() { fitScreen(); setTimeout(fitScreen, 150); setTimeout(fitScreen, 600); }
   window.addEventListener("resize", fitScreen);
-  document.addEventListener("fullscreenchange", fitScreen);
+  document.addEventListener("fullscreenchange", fitSoon);
 
   function onFullscreen() {
     const el = $("screen_container");
@@ -296,6 +326,8 @@
   }
 
   // ---------- Branchements ----------
+  $("opt-mode").addEventListener("change", () => savePrefs({ ...loadPrefs(), mode: $("opt-mode").value }));
+  $("opt-quality").addEventListener("change", () => savePrefs({ ...loadPrefs(), width: Number($("opt-quality").value) }));
   $("btn-fresh").addEventListener("click", () => startMachine(false));
   $("btn-resume").addEventListener("click", () => startMachine(true));
   $("btn-save").addEventListener("click", onSave);

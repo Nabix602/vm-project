@@ -27,6 +27,21 @@
     <div class="card">
       <h1>Démarrer la machine</h1>
       <p id="boot-text">Un Linux complet va démarrer dans cet onglet.</p>
+      <div class="options">
+        <label>Affichage
+          <select id="opt-mode">
+            <option value="desktop">Bureau graphique</option>
+            <option value="console">Console (texte, le plus rapide)</option>
+          </select>
+        </label>
+        <label>Qualité de l'écran
+          <select id="opt-quality">
+            <option value="800">Fluide (800 px)</option>
+            <option value="1024">Normale (1024 px)</option>
+            <option value="1280">Nette (1280 px)</option>
+          </select>
+        </label>
+      </div>
       <div class="row">
         <button id="btn-resume" hidden>Reprendre la session sauvegardée</button>
         <button id="btn-fresh">Démarrer à neuf</button>

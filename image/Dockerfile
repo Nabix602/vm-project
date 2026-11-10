@@ -12,7 +12,7 @@ RUN apk add --no-cache \
 RUN apk add --no-cache \
     xorg-server xinit xauth xkeyboard-config xf86-video-fbdev xf86-input-libinput \
     eudev udev-init-scripts udev-init-scripts-openrc dbus dbus-x11 \
-    openbox tint2 pcmanfm lxterminal mousepad xdotool \
+    openbox tint2 xterm xsetroot xrdb mc xdotool \
     adwaita-icon-theme font-dejavu
 
 # Icônes en couleur pour les applications (si le paquet existe pour ce processeur)
@@ -50,11 +50,11 @@ RUN printf 'VM Project - Alpine Linux dans ton navigateur\n\n' > /etc/motd
 # Réglages du bureau (voir image/overlay/)
 COPY overlay/ /
 RUN set -e; \
-    if command -v dillo >/dev/null; then BR="dillo"; elif command -v links >/dev/null; then BR="lxterminal -e links"; else BR="lxterminal"; fi; \
+    if command -v dillo >/dev/null; then BR="dillo"; elif command -v links >/dev/null; then BR="xterm -e links"; else BR="xterm"; fi; \
     mk() { printf '[Desktop Entry]\nType=Application\nName=%s\nExec=%s\nIcon=%s\nTerminal=false\nCategories=Utility;\n' "$1" "$2" "$3" > "/usr/share/applications/$4.desktop"; }; \
-    mk Terminal lxterminal utilities-terminal vm-terminal; \
-    mk Fichiers pcmanfm system-file-manager vm-fichiers; \
-    mk Editeur mousepad accessories-text-editor vm-editeur; \
+    mk Terminal xterm utilities-terminal vm-terminal; \
+    mk Fichiers 'xterm -e mc' system-file-manager vm-fichiers; \
+    mk Editeur 'xterm -e nano' accessories-text-editor vm-editeur; \
     mk Navigateur "$BR" web-browser vm-navigateur; \
     mkdir -p /root/Desktop; \
     cp /usr/share/applications/vm-*.desktop /root/Desktop/; \

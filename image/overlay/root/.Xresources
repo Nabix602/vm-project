@@ -1,0 +1,8 @@
+xterm*faceName: DejaVu Sans Mono
+xterm*faceSize: 11
+xterm*background: #101820
+xterm*foreground: #e6edf3
+xterm*scrollBar: false
+xterm*saveLines: 2000
+xterm*utf8: 1
+xterm*locale: true

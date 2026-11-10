@@ -258,15 +258,15 @@ if (prompted) {
     throw new Error("pas d'écran X : " + last.slice(-200) + " " + diag);
   });
   if (xUp) {
-    await check("Bureau : barre, bureau et fenêtres (openbox, tint2, pcmanfm)", async () => {
+    await check("Bureau : barre, bureau et fenêtres (openbox, tint2)", async () => {
       const end = Date.now() + 180000;
       let o = "";
       while (Date.now() < end) {
-        o = await sh("ps | grep -q '[/]usr/bin/openbox' && echo up-openbox || echo down-openbox; ps | grep -q '[t]int2' && echo up-tint2 || echo down-tint2; ps | grep -q '[p]cmanfm --desktop' && echo up-pcmanfm || echo down-pcmanfm", 30000);
-        if (/up-openbox/.test(o) && /up-tint2/.test(o) && /up-pcmanfm/.test(o)) return "openbox, tint2, pcmanfm actifs";
+        o = await sh("ps | grep -q '[/]usr/bin/openbox' && echo up-openbox || echo down-openbox; ps | grep -q '[t]int2' && echo up-tint2 || echo down-tint2", 30000);
+        if (/up-openbox/.test(o) && /up-tint2/.test(o)) return "openbox, tint2 actifs";
         await page.waitForTimeout(4000);
       }
-      const diag = await sh("echo '--- startx.log'; tail -30 /tmp/startx.log; echo '--- ps'; ps | grep -E 'openbox|tint2|pcmanfm|dbus' | grep -v grep; echo '--- bin'; ls /usr/bin | grep -i openbox; echo '--- essai'; DISPLAY=:0 timeout 8 openbox 2>&1 | head -20", 40000).catch((e) => e.message);
+      const diag = await sh("echo '--- startx.log'; tail -30 /tmp/startx.log; echo '--- ps'; ps | grep -E 'openbox|tint2|dbus' | grep -v grep; echo '--- bin'; ls /usr/bin | grep -i openbox; echo '--- essai'; DISPLAY=:0 timeout 8 openbox 2>&1 | head -20", 40000).catch((e) => e.message);
       console.log("  diagnostic openbox :\n" + diag);
       throw new Error(o.replace(/\s+/g, " ").slice(-60));
     });
@@ -330,10 +330,10 @@ if (prompted) {
       const sc = box0.width / nat[0];
       const panelY = nat[1] - 17;
       for (const [label, gx, search] of [
-        ["Terminal", 20, "--class '[Ll]xterminal'"],
-        ["Fichiers", 50, "--name '^root$'"],
-        ["Éditeur", 80, "--class '[Mm]ousepad'"],
-        ["Navigateur", 110, "--class '[Dd]illo|[Ll]xterminal'"]
+        ["Terminal", 20, "--class '[Xx]term'"],
+        ["Fichiers", 50, "--class '[Xx]term'"],
+        ["Éditeur", 80, "--class '[Xx]term'"],
+        ["Navigateur", 110, "--class '[Dd]illo|[Xx]term'"]
       ]) {
         await check(`Souris : un clic sur l'icône « ${label} » de la barre ouvre l'application`, async () => {
           const b = await page.locator("#screen_container canvas").boundingBox();
@@ -358,10 +358,10 @@ if (prompted) {
 
     // Applications : on les lance et on vérifie qu'une fenêtre apparaît (le terminal reste ouvert pour la suite)
     for (const [label, cmd, search, keep] of [
-      ["Gestionnaire de fichiers", "pcmanfm /root", "--name '^root$'", false],
-      ["Éditeur de texte", "mousepad", "--class '[Mm]ousepad'", false],
-      ["Navigateur", "$(command -v dillo || echo 'lxterminal -e links') http://example.com", "--class '[Dd]illo|[Ll]xterminal'", false],
-      ["Terminal", "lxterminal", "--class '[Ll]xterminal'", true]
+      ["Gestionnaire de fichiers", "xterm -e mc", "--class '[Xx]term'", false],
+      ["Éditeur de texte", "xterm -e nano", "--class '[Xx]term'", false],
+      ["Navigateur", "$(command -v dillo || echo 'xterm -e links') http://example.com", "--class '[Dd]illo|[Xx]term'", false],
+      ["Terminal", "xterm", "--class '[Xx]term'", true]
     ]) {
       await check(`Bureau : ${label} s'ouvre`, async () => {
         await sh(`cd /root; (${X}${cmd} >/tmp/app.log 2>&1 &); sleep 1`, 30000);
@@ -379,6 +379,21 @@ if (prompted) {
       }, { critical: label === "Terminal" });
     }
     console.log("  aperçu après ouverture du terminal :\n" + (await asciiScreen()));
+    await check("Plein écran : l'écran de la machine remplit toute la fenêtre", async () => {
+      await page.click("#btn-fullscreen");
+      await page.waitForTimeout(2500);
+      const r = await page.evaluate(() => {
+        const b = document.querySelector("#screen_container canvas").getBoundingClientRect();
+        return { cw: b.width, ch: b.height, w: innerWidth, h: innerHeight, fs: !!document.fullscreenElement, sw: screen.width, sh: screen.height };
+      });
+      await page.keyboard.press("Escape").catch(() => {});
+      await page.evaluate(() => document.fullscreenElement && document.exitFullscreen()).catch(() => {});
+      await page.waitForTimeout(800);
+      const info = JSON.stringify(r);
+      if (!r.fs) throw new Error("pas passé en plein écran " + info);
+      if (r.cw < r.w * 0.97 || r.ch < r.h * 0.97) throw new Error("ne remplit pas " + info);
+      return info;
+    });
     await check("Fluidité : 60 déplacements de fenêtre (plus court = plus fluide)", async () => {
       await page.evaluate(() => {
         if (window.__fpsHooked) return;
@@ -392,12 +407,12 @@ if (prompted) {
       });
       const f0 = await page.evaluate(() => [window.__frames, window.__area]);
       const t = Date.now();
-      await sh(`${X}W=$(DISPLAY=:0 xdotool search --onlyvisible --class '[Ll]xterminal' | head -1); i=0; while [ $i -lt 60 ]; do DISPLAY=:0 xdotool windowmove $W $((i*6)) $((i*3)); i=$((i+1)); done`, 180000);
+      await sh(`${X}W=$(DISPLAY=:0 xdotool search --onlyvisible --class '[Xx]term' | head -1); i=0; while [ $i -lt 60 ]; do DISPLAY=:0 xdotool windowmove $W $((i*6)) $((i*3)); i=$((i+1)); done`, 180000);
       const dt = (Date.now() - t) / 1000;
       const f1 = await page.evaluate(() => [window.__frames, window.__area]);
       return `${dt.toFixed(1)} s ; ${f1[0] - f0[0]} mises à jour d'écran (${((f1[0] - f0[0]) / dt).toFixed(1)}/s), ${((f1[1] - f0[1]) / 1e6).toFixed(1)} Mpixels`;
     }, { critical: false });
-    await sh(`${X}xdotool search --onlyvisible --class '[Ll]xterminal' | head -1 | xargs -r -I{} ${X}xdotool windowfocus {}`, 30000).catch(() => {});
+    await sh(`${X}xdotool search --onlyvisible --class '[Xx]term' | head -1 | xargs -r -I{} ${X}xdotool windowfocus {}`, 30000).catch(() => {});
   }
 
   // =========================== 4. Clavier français (touches physiques) ===========================
