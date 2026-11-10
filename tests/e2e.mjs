@@ -337,18 +337,21 @@ if (prompted) {
       ]) {
         await check(`Souris : un clic sur l'icône « ${label} » de la barre ouvre l'application`, async () => {
           const b = await page.locator("#screen_container canvas").boundingBox();
-          await page.mouse.move(b.x + 400 * sc, b.y + 300 * sc);
-          await page.mouse.move(b.x + gx * sc, b.y + panelY * sc, { steps: 10 });
-          await page.waitForTimeout(400);
-          await page.mouse.down();
-          await page.waitForTimeout(120);
-          await page.mouse.up();
-          const end = Date.now() + 90000;
-          while (Date.now() < end) {
-            const o = await sh(`${X}xdotool search --onlyvisible ${search} 2>&1 | head -1`, 30000);
-            const m = o.match(/^(\d+)\s*$/m);
-            if (m) { await sh(`${X}xdotool windowclose ${m[1]}; true`, 15000).catch(() => {}); return "fenêtre " + m[1]; }
-            await page.waitForTimeout(2500);
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            await page.waitForTimeout(1500);
+            await page.mouse.move(b.x + 400 * sc, b.y + 300 * sc);
+            await page.mouse.move(b.x + gx * sc, b.y + panelY * sc, { steps: 10 });
+            await page.waitForTimeout(400);
+            await page.mouse.down();
+            await page.waitForTimeout(120);
+            await page.mouse.up();
+            const end = Date.now() + (attempt === 3 ? 90000 : 35000);
+            while (Date.now() < end) {
+              const o = await sh(`${X}xdotool search --onlyvisible ${search} 2>&1 | head -1`, 30000);
+              const m = o.match(/^(\d+)\s*$/m);
+              if (m) { await sh(`${X}xdotool windowclose ${m[1]}; true`, 15000).catch(() => {}); return "fenêtre " + m[1] + (attempt > 1 ? " (essai " + attempt + ")" : ""); }
+              await page.waitForTimeout(2500);
+            }
           }
           const tint = await sh(`${X}xdotool search --class tint2 | head -1 | xargs -r -I{} ${X}xdotool getwindowgeometry {}; tail -3 /tmp/startx.log`, 30000).catch(() => "");
           throw new Error("aucune fenêtre après le clic ; tint2 : " + tint.replace(/\s+/g, " ").slice(-200));
