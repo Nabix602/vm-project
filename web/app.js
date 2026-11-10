@@ -173,7 +173,7 @@
       bios: { url: "bios/seabios.bin" },
       vga_bios: { url: "bios/vgabios.bin" },
       bzimage_initrd_from_filesystem: true,
-      cmdline: cfg.cmdline + (wantDesktop ? " desktop=1" : ""),
+      cmdline: (params.get("rawcmd") || cfg.cmdline) + (wantDesktop ? " desktop=1" : "") + (params.get("cmd") ? " " + params.get("cmd") : ""),
       filesystem: { baseurl: cfg.fsBase, basefs: cfg.fsJson },
       autostart: !restore
     };
