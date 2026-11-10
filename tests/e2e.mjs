@@ -323,6 +323,39 @@ if (prompted) {
     }
     await page.setViewportSize({ width: 1280, height: 900 });
 
+    // Clics de souris réels sur les lanceurs de la barre des tâches (ce que fait un utilisateur)
+    {
+      const box0 = await page.locator("#screen_container canvas").boundingBox();
+      const nat = await page.evaluate(() => { const c = document.querySelector("#screen_container canvas"); return [c.width, c.height]; });
+      const sc = box0.width / nat[0];
+      const panelY = nat[1] - 17;
+      for (const [label, gx, search] of [
+        ["Terminal", 20, "--class '[Ll]xterminal'"],
+        ["Fichiers", 50, "--name '^root$'"],
+        ["Éditeur", 80, "--class '[Mm]ousepad'"],
+        ["Navigateur", 110, "--class '[Dd]illo|[Ll]xterminal'"]
+      ]) {
+        await check(`Souris : un clic sur l'icône « ${label} » de la barre ouvre l'application`, async () => {
+          const b = await page.locator("#screen_container canvas").boundingBox();
+          await page.mouse.move(b.x + 400 * sc, b.y + 300 * sc);
+          await page.mouse.move(b.x + gx * sc, b.y + panelY * sc, { steps: 10 });
+          await page.waitForTimeout(400);
+          await page.mouse.down();
+          await page.waitForTimeout(120);
+          await page.mouse.up();
+          const end = Date.now() + 90000;
+          while (Date.now() < end) {
+            const o = await sh(`${X}xdotool search --onlyvisible ${search} 2>&1 | head -1`, 30000);
+            const m = o.match(/^(\d+)\s*$/m);
+            if (m) { await sh(`${X}xdotool windowclose ${m[1]}; true`, 15000).catch(() => {}); return "fenêtre " + m[1]; }
+            await page.waitForTimeout(2500);
+          }
+          const tint = await sh(`${X}xdotool search --class tint2 | head -1 | xargs -r -I{} ${X}xdotool getwindowgeometry {}; tail -3 /tmp/startx.log`, 30000).catch(() => "");
+          throw new Error("aucune fenêtre après le clic ; tint2 : " + tint.replace(/\s+/g, " ").slice(-200));
+        });
+      }
+    }
+
     // Applications : on les lance et on vérifie qu'une fenêtre apparaît (le terminal reste ouvert pour la suite)
     for (const [label, cmd, search, keep] of [
       ["Gestionnaire de fichiers", "pcmanfm /root", "--name '^root$'", false],
@@ -346,6 +379,24 @@ if (prompted) {
       }, { critical: label === "Terminal" });
     }
     console.log("  aperçu après ouverture du terminal :\n" + (await asciiScreen()));
+    await check("Fluidité : 60 déplacements de fenêtre (plus court = plus fluide)", async () => {
+      await page.evaluate(() => {
+        if (window.__fpsHooked) return;
+        window.__fpsHooked = true;
+        window.__frames = 0; window.__area = 0;
+        const o = CanvasRenderingContext2D.prototype.putImageData;
+        CanvasRenderingContext2D.prototype.putImageData = function (...a) {
+          window.__frames++; window.__area += (a[5] || this.canvas.width) * (a[6] || this.canvas.height);
+          return o.apply(this, a);
+        };
+      });
+      const f0 = await page.evaluate(() => [window.__frames, window.__area]);
+      const t = Date.now();
+      await sh(`${X}W=$(DISPLAY=:0 xdotool search --onlyvisible --class '[Ll]xterminal' | head -1); i=0; while [ $i -lt 60 ]; do DISPLAY=:0 xdotool windowmove $W $((i*6)) $((i*3)); i=$((i+1)); done`, 180000);
+      const dt = (Date.now() - t) / 1000;
+      const f1 = await page.evaluate(() => [window.__frames, window.__area]);
+      return `${dt.toFixed(1)} s ; ${f1[0] - f0[0]} mises à jour d'écran (${((f1[0] - f0[0]) / dt).toFixed(1)}/s), ${((f1[1] - f0[1]) / 1e6).toFixed(1)} Mpixels`;
+    }, { critical: false });
     await sh(`${X}xdotool search --onlyvisible --class '[Ll]xterminal' | head -1 | xargs -r -I{} ${X}xdotool windowfocus {}`, 30000).catch(() => {});
   }
 
