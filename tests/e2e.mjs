@@ -541,6 +541,8 @@ await page.evaluate(() => { try { return window.__vm && window.__vm.destroy(); }
   w.on("pageerror", (e) => errs.push(e.message));
   await w.addInitScript(() => { try { sessionStorage.setItem("vm-project:unlocked", "1"); } catch {} });
   await w.goto(new URL("win.html", BASE).href);
+  await w.waitForTimeout(2500);
+  if (await w.locator("#boot").isVisible()) await w.click("#b-new");
   await check("Bureau Web 11 : page chargée sans erreur, barre des tâches et menu Démarrer", async () => {
     await w.waitForSelector("#task .tb");
     await w.locator("#task .tb").first().click();
@@ -555,7 +557,6 @@ await page.evaluate(() => { try { return window.__vm && window.__vm.destroy(); }
     for (const k of ["6", "×", "7", "="]) await w.locator(".calc button", { hasText: new RegExp("^" + k + "$") }).first().click();
     expect((await w.locator(".calc .scr").innerText()).trim() === "42", "6×7 != 42");
   }, { critical: false });
-  if (await w.locator("#boot").isVisible()) await w.click("#b-new");
   const ready = await check("Bureau Web 11 : le vrai Linux démarre en arrière-plan", async () => {
     await w.waitForFunction(() => window.__win && (window.__win.L.state === "ready" || window.__win.L.state === "error"), null, { timeout: 420000, polling: 2000 });
     const st = await w.evaluate(() => window.__win.L.state);
