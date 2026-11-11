@@ -111,6 +111,7 @@
   async function initLock() {
     const stored = readHash();
     if (stored && consumeSkipLock()) {
+      try { sessionStorage.setItem("vm-project:unlocked", "1"); } catch {}
       await initBoot();
       return;
     }
@@ -146,6 +147,8 @@
       }
 
       $("lock-input").value = "";
+      try { sessionStorage.setItem("vm-project:unlocked", "1"); } catch {}
+      if (new URLSearchParams(location.search).get("next") === "win.html") { location.replace("win.html"); return; }
       await initBoot();
     });
   }

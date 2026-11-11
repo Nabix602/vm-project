@@ -486,26 +486,6 @@ if (prompted) {
     return JSON.stringify(r);
   }, { critical: false });
 
-  // =========================== Bureau Web 11 ===========================
-  await check("Bureau Web 11 : ouverture, terminal, fichiers et calculatrice", async () => {
-    const w = await ctx.newPage();
-    const errs = [];
-    w.on("pageerror", (e) => errs.push(e.message));
-    await w.goto(new URL("win.html", BASE).href);
-    await w.evaluate(() => { __win.open("terminal"); });
-    const inp = w.locator(".term input");
-    for (const c of ["mkdir /Documents/test", "echo salut > /Documents/test/a.txt", "cat /Documents/test/a.txt"]) { await inp.fill(c); await inp.press("Enter"); }
-    const txt = await w.locator(".term").innerText();
-    await w.evaluate(() => { __win.open("calculatrice"); });
-    for (const k of ["6", "×", "7", "="]) await w.locator(".calc button", { hasText: new RegExp("^" + (k === "×" ? "×" : k) + "$") }).first().click();
-    const scr = await w.locator(".calc .scr").innerText();
-    await w.close();
-    if (errs.length) throw new Error("erreur JS : " + errs[0]);
-    expect(/salut/.test(txt.split("cat /Documents/test/a.txt")[1] || ""), txt.slice(-120));
-    expect(scr.trim() === "42", "calcul : " + scr);
-    return "terminal et calculatrice OK";
-  }, { critical: false });
-
   // =========================== 6. Sauvegarde et reprise ===========================
   await check("Sauvegarde : écrire un fichier puis sauvegarder", async () => {
     await sh("echo persiste-$((40+2)) > /root/persist.txt; sync");
@@ -551,6 +531,67 @@ if (prompted) {
     expect(o.includes("persiste-42"), o.slice(-200));
   });
   await shot("03-apres-reprise");
+}
+
+// =========================== Bureau Web 11 branché sur Linux ===========================
+await page.evaluate(() => { try { return window.__vm && window.__vm.destroy(); } catch {} }).catch(() => {});
+{
+  const w = await ctx.newPage();
+  const errs = [];
+  w.on("pageerror", (e) => errs.push(e.message));
+  await w.addInitScript(() => { try { sessionStorage.setItem("vm-project:unlocked", "1"); } catch {} });
+  await w.goto(new URL("win.html", BASE).href);
+  await check("Bureau Web 11 : page chargée sans erreur, barre des tâches et menu Démarrer", async () => {
+    await w.waitForSelector("#task .tb");
+    await w.locator("#task .tb").first().click();
+    await w.waitForSelector("#start.open");
+    await w.keyboard.press("Escape");
+    await w.locator("#desk").click({ position: { x: 600, y: 300 } });
+    if (errs.length) throw new Error("erreur JS : " + errs[0]);
+    return "ok";
+  });
+  await check("Bureau Web 11 : calculatrice", async () => {
+    await w.evaluate(() => __win.open("calculatrice"));
+    for (const k of ["6", "×", "7", "="]) await w.locator(".calc button", { hasText: new RegExp("^" + k + "$") }).first().click();
+    expect((await w.locator(".calc .scr").innerText()).trim() === "42", "6×7 != 42");
+  }, { critical: false });
+  if (await w.locator("#boot").isVisible()) await w.click("#b-new");
+  const ready = await check("Bureau Web 11 : le vrai Linux démarre en arrière-plan", async () => {
+    await w.waitForFunction(() => window.__win && (window.__win.L.state === "ready" || window.__win.L.state === "error"), null, { timeout: 420000, polling: 2000 });
+    const st = await w.evaluate(() => window.__win.L.state);
+    expect(st === "ready", "état : " + st + " | " + (await w.textContent("#vmpill").catch(() => "")));
+    return "prêt";
+  });
+  if (ready) {
+    await check("Bureau Web 11 : commande exécutée dans le vrai Linux (pont)", async () => {
+      const o = await w.evaluate(() => window.__win.L.run("echo pont-$((6*7)); uname -s"));
+      expect(/pont-42/.test(o) && /Linux/.test(o), JSON.stringify(o));
+    });
+    await check("Bureau Web 11 : écriture puis lecture d'un fichier Linux (accents)", async () => {
+      const txt = "é à ç 12\nligne 2";
+      await w.evaluate((t) => window.__win.L.writeFile("/root/z.txt", t), txt);
+      const r = await w.evaluate(() => window.__win.L.readFile("/root/z.txt"));
+      expect(r.includes("é à ç 12") && r.includes("ligne 2"), JSON.stringify(r));
+    });
+    await check("Bureau Web 11 : l'explorateur affiche les fichiers Linux", async () => {
+      await w.evaluate(() => window.__win.L.run("echo hello > /root/visible-ici.txt"));
+      await w.evaluate(() => __win.open("explorateur"));
+      await w.locator(".nav div", { hasText: "Dossier personnel" }).click();
+      await w.waitForSelector(".list .row:has-text('visible-ici.txt')", { timeout: 60000 });
+    });
+    await check("Bureau Web 11 : le terminal est le vrai shell Linux", async () => {
+      await w.evaluate(() => __win.open("terminal"));
+      await w.waitForSelector(".xterm");
+      await w.waitForTimeout(1500);
+      await w.locator(".xterm").click();
+      await w.keyboard.type("echo terminal-$((6*7))", { delay: 40 });
+      await w.keyboard.press("Enter");
+      await w.waitForFunction(() => /terminal-42/.test(document.querySelector(".xterm-rows")?.innerText.split("\n").filter((l) => !/echo/.test(l)).join("\n") || ""), null, { timeout: 60000 });
+    });
+    await w.screenshot({ path: `${OUT}/04-bureau-web-11.png` }).catch(() => {});
+  }
+  if (errs.length) console.log("  erreurs JS de la page win :", errs.slice(0, 3));
+  await w.close();
 }
 
 // =========================== Bilan ===========================

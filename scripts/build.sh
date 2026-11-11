@@ -21,12 +21,14 @@ cp -r "$ROOT"/web/. "$DIST"/
 
 # 2. L'émulateur v86 (paquet npm)
 echo "==> Installation du paquet npm v86"
-(cd "$WORK" && npm init -y >/dev/null && npm install v86 >/dev/null)
+(cd "$WORK" && npm init -y >/dev/null && npm install v86 @xterm/xterm@5.5.0 >/dev/null)
 PKG="$WORK/node_modules/v86"
 grep '"version"' "$PKG/package.json"
 
 cp "$PKG/build/v86.wasm"    "$DIST/build/v86.wasm"
 cp "$PKG/build/libv86.js"   "$DIST/build/libv86.js"
+cp "$WORK/node_modules/@xterm/xterm/lib/xterm.js" "$DIST/build/xterm.js"
+cp "$WORK/node_modules/@xterm/xterm/css/xterm.css" "$DIST/build/xterm.css"
 [ -f "$PKG/build/v86-fallback.wasm" ] && cp "$PKG/build/v86-fallback.wasm" "$DIST/build/v86-fallback.wasm"
 
 # 3. Les BIOS ne sont pas dans le paquet npm : on les prend dans le dépôt de v86
