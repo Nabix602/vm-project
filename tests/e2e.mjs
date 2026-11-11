@@ -548,7 +548,8 @@ await page.evaluate(() => { try { return window.__vm && window.__vm.destroy(); }
     await w.locator("#task .tb").first().click();
     await w.waitForSelector("#start.open");
     await w.keyboard.press("Escape");
-    await w.locator("#desk").click({ position: { x: 600, y: 300 } });
+    await w.mouse.click(1100, 120);
+    await w.waitForFunction(() => !document.querySelector("#start.open"));
     if (errs.length) throw new Error("erreur JS : " + errs[0]);
     return "ok";
   });
